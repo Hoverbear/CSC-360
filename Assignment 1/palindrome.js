@@ -27,28 +27,45 @@ function main() {
     
     // Once we've read for STDIN, start searching through words for words that exist when spelled backwards.
     process.stdin.on('end', function () {
-        console.log(JSON.stringify(root, null, " "));
-        console.log(root.find("test"));
+        var words = root.iterator(),
+            word;
+        while (true) {
+            word = words.next();
+            switch (word) {
+            case false:
+                // Out of words.
+                process.exit(0);
+                return;
+            default:
+                // We have more words.
+                console.log(word);
+            }
+            
+        }
     });
     
 }
 
 // Trie Node.
-TrieNode = function (value) {
+TrieNode = function TrieNode(value, words) {
     'use strict';
     
     this.value = value;
     this.children = {};
-    this.words = 0;
-    
+    if (words === null) {
+        this.words = words;
+    } else {
+        this.words = 0;
+    }
+
     return this;
 };
 // Add a new item to the Trie.
-TrieNode.prototype.add = function (item) {
+TrieNode.prototype.add = function add(item) {
     'use strict';
     var head,
         tail;
-
+    
     switch (item.length) {
     case 0:
         // Base Case
@@ -64,12 +81,14 @@ TrieNode.prototype.add = function (item) {
         case undefined:
             // No node created yet!
             // Create, then recursively add.
-            this.children[head] = new TrieNode(head);
+            this.words += 1;
+            this.children[head] = new TrieNode(head, this.words);
             this.children[head].add(item.substring(1, item.length));
             break;
         default:
             // A node exists.
             // Recursively add.
+            this.words += 1;
             this.children[head].add(tail);
             break;
         }
@@ -78,7 +97,7 @@ TrieNode.prototype.add = function (item) {
     return;
 };
 // Find an item in the Trie.
-TrieNode.prototype.find = function (item) {
+TrieNode.prototype.find = function find(item) {
     'use strict';
     var head,
         tail;
@@ -107,6 +126,73 @@ TrieNode.prototype.find = function (item) {
             return this.children[head].find(tail);
         }
     }
+};
+// Iterate over the Trie.
+TrieNode.prototype.iterator = function iterator() {
+    'use strict';
+    var root = this,
+        child,
+        path = '',
+        head = '',
+        tail = Object.keys(this.children),
+        childIterator,
+        remaining = this.words,
+        next;
+
+    next = function next() {
+        var iteratee;
+        
+        switch (remaining) {
+        case root.words:
+            console.log("That place");
+            // This is a word, we need it next!
+            console.log(String(path) === String(''));
+            remaining -= 1;
+            if (String(path) !== String('')) {
+                return path;
+            } else {
+                return this.next();
+            }
+        case 0:
+            return false;
+        default:
+            // This is not a word, or has already been consumed.
+            // We need to continue.
+            head = tail.shift();
+            switch (head) {
+            case undefined:
+                // TODO: Bug where we miss Z?
+                // We've exhausted our list.
+                return false;
+            }
+//            console.log("HEAD IS: " + head);
+            console.log("remiaining: " + remaining);
+            child = root.children[head];
+            console.log("Child: " + JSON.stringify(child, false, " "));
+//            console.log("Root: " + JSON.stringify(root, false, " "));
+            switch (child) {
+            case undefined:
+                return false;
+            default:
+                // This is a sub-Trie that will also iterate.
+                childIterator = child.iterator();
+                path += head;
+                iteratee = childIterator.next();
+                console.log("ITeratee is " + iteratee);
+                switch (iteratee) {
+                case false:
+                    // This sub-trie is done.
+                    return false;
+                default:
+                    return iteratee;
+                }
+            }
+        }
+    };
+    
+    return {
+        next: next
+    };
 };
 
 main();
