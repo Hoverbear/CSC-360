@@ -128,11 +128,10 @@ TrieNode.prototype.find = function find(item) {
     }
 };
 // Iterate over the Trie.
-TrieNode.prototype.iterator = function iterator() {
+TrieNode.prototype.iterator = function iterator(path) {
     'use strict';
     var root = this,
         child,
-        path = '',
         head = '',
         tail = Object.keys(this.children),
         childIterator,
@@ -142,9 +141,7 @@ TrieNode.prototype.iterator = function iterator() {
     next = function next() {
         var iteratee;
         
-        switch (remaining) {
-        case root.words:
-            console.log("That place");
+        if (remaining === root.words) {
             // This is a word, we need it next!
             console.log(String(path) === String(''));
             remaining -= 1;
@@ -153,9 +150,9 @@ TrieNode.prototype.iterator = function iterator() {
             } else {
                 return this.next();
             }
-        case 0:
+        } else if (remaining === 0) {
             return false;
-        default:
+        } else {
             // This is not a word, or has already been consumed.
             // We need to continue.
             head = tail.shift();
@@ -177,6 +174,7 @@ TrieNode.prototype.iterator = function iterator() {
                 // This is a sub-Trie that will also iterate.
                 childIterator = child.iterator();
                 path += head;
+                console.log("Path " + path);
                 iteratee = childIterator.next();
                 console.log("ITeratee is " + iteratee);
                 switch (iteratee) {
