@@ -13,50 +13,40 @@ var main,
 
 function main() {
     'use strict';
-    var root = new TrieNode('');
+    var root = new TrieNode(''),
+        items = [];
     
     // Encourage STDIN to behave desirably.
     process.stdin.resume();
     process.stdin.setEncoding('utf8');
     
-    // Populate the Trie from STDIN.
-    // This will be one large file.
+    // Populate `items` from STDIN.
     process.stdin.on('data', function (data) {
-        data.split("\\n").map(root.add, root);
+        // Aggregate in the items.
+        items = items.concat(data.split("\n"));
     });
     
-    // Once we've read for STDIN, start searching through words for words that exist when spelled backwards.
+    // Process the data.
     process.stdin.on('end', function () {
-        var words = root.iterator(),
-            word;
-        while (true) {
-            word = words.next();
-            switch (word) {
-            case false:
-                // Out of words.
-                process.exit(0);
-                return;
-            default:
-                // We have more words.
-                console.log(word);
-            }
-            
-        }
+        // Add all the items to the Trie.
+        items.map(root.add, root);
+        // Go through all items and find reverses.
+        items.map(function (val) {
+            return val.split("").reverse().join("");
+        }).filter(root.find, root).map(function (val) {
+            console.log(val);
+        });
     });
     
 }
 
 // Trie Node.
-TrieNode = function TrieNode(value, words) {
+TrieNode = function TrieNode(value) {
     'use strict';
     
     this.value = value;
     this.children = {};
-    if (words === null) {
-        this.words = words;
-    } else {
-        this.words = 0;
-    }
+    this.word = false;
 
     return this;
 };
@@ -69,7 +59,7 @@ TrieNode.prototype.add = function add(item) {
     switch (item.length) {
     case 0:
         // Base Case
-        this.words += 1;
+        this.word = true;
         break;
     default:
         // Recursive Case
@@ -81,8 +71,7 @@ TrieNode.prototype.add = function add(item) {
         case undefined:
             // No node created yet!
             // Create, then recursively add.
-            this.words += 1;
-            this.children[head] = new TrieNode(head, this.words);
+            this.children[head] = new TrieNode(head);
             this.children[head].add(item.substring(1, item.length));
             break;
         default:
@@ -105,10 +94,11 @@ TrieNode.prototype.find = function find(item) {
     switch (item.length) {
     case 0:
         // Base Case
-        if (this.words !== 0) {
+        if (this.word) {
             return true;
+        } else {
+            return false;
         }
-        break;
     default:
         // Recursive Case
         head = item.charAt(0);
@@ -126,71 +116,6 @@ TrieNode.prototype.find = function find(item) {
             return this.children[head].find(tail);
         }
     }
-};
-// Iterate over the Trie.
-TrieNode.prototype.iterator = function iterator(path) {
-    'use strict';
-    var root = this,
-        child,
-        head = '',
-        tail = Object.keys(this.children),
-        childIterator,
-        remaining = this.words,
-        next;
-
-    next = function next() {
-        var iteratee;
-        
-        if (remaining === root.words) {
-            // This is a word, we need it next!
-            console.log(String(path) === String(''));
-            remaining -= 1;
-            if (String(path) !== String('')) {
-                return path;
-            } else {
-                return this.next();
-            }
-        } else if (remaining === 0) {
-            return false;
-        } else {
-            // This is not a word, or has already been consumed.
-            // We need to continue.
-            head = tail.shift();
-            switch (head) {
-            case undefined:
-                // TODO: Bug where we miss Z?
-                // We've exhausted our list.
-                return false;
-            }
-//            console.log("HEAD IS: " + head);
-            console.log("remiaining: " + remaining);
-            child = root.children[head];
-            console.log("Child: " + JSON.stringify(child, false, " "));
-//            console.log("Root: " + JSON.stringify(root, false, " "));
-            switch (child) {
-            case undefined:
-                return false;
-            default:
-                // This is a sub-Trie that will also iterate.
-                childIterator = child.iterator();
-                path += head;
-                console.log("Path " + path);
-                iteratee = childIterator.next();
-                console.log("ITeratee is " + iteratee);
-                switch (iteratee) {
-                case false:
-                    // This sub-trie is done.
-                    return false;
-                default:
-                    return iteratee;
-                }
-            }
-        }
-    };
-    
-    return {
-        next: next
-    };
 };
 
 main();
