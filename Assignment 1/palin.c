@@ -75,49 +75,86 @@ int trie_find(struct trie_node trie, char* item) {
   return 0;
 }
 
+/* Parse Input
+ * -----------
+ * Parses the `stdin` for a list of words separated by `\n`
+ * Grows the `words` global as exponentially then resizes it back down afterwards
+ * to avoid a ton of reallocs.
+ */
+void parse_input(int* dict_size, char*** words) {
+  
+
+}
 
 /* Main
  * ----
  * Please see `./a1.pdf` for a description of the problem for this program.
  */
- int main(int argc, char *argv[]) {
+int main(int argc, char *argv[]) {
   /* Variable Init */
   int dict_size = 1;
-	int dict_position = 0;
-  char** words = malloc(dict_size * sizeof(char*)); /* Start with 10 words in size. Grow later */
-  size_t word_size;
-
-	for (;;) {
-		/* Do we need to enlarge the words array? */
-		if (dict_position >= dict_size - 1) {
-			
-		}
-		
-		/* Add the item */
-	  words[dict_position] = malloc(0); /* Workaround for getline */
-		int status = getline(&words[dict_position], &word_size, stdin);
-	  if (status == -1) {
-			/* Done STDIN */
-			break;
-		} else {
-			/* Keep going */
-			words[dict_position][strlen(words[0])-1] = 0; 	/* C is annoying! */
-			fprintf(stdout, "'%s'\n", words[dict_position]);
-		}
-	}
+  int stdin_position = 0;
+  char** words = malloc(dict_size * sizeof(char*));
+  if (words == NULL) {
+    fprintf(stderr, "Error allocating memory for words.\n");
+    exit(-1);
+  }
 
   /* Take in dictionary from STDIN */
-  /* IDEA: Use this as a producer? */
+  /* Threading Potential: 0/10 */
+  for (;;) {
+    fprintf(stderr, "STDIN Position: %d\n", stdin_position);
+    /* Do we need to enlarge the words array? */
+    if (stdin_position >= dict_size - 1) {
+      dict_size *= 2;
+      words = realloc (words, dict_size * sizeof(char*));
+      if (words == NULL) {
+        fprintf(stderr, "Error reallocating memory for words.\n");
+        exit(-1);
+      }
+    }
+    
+    /* Add the item */
+    words[stdin_position] = malloc(256 * sizeof(char*));
+    if (words[stdin_position] == NULL) {
+      fprintf(stderr, "Error allocating memory for fgets.\n");
+    }
+
+    char* status = fgets(words[stdin_position], 256, stdin);
+    if (status == NULL) {
+      /* Done STDIN */
+      break;
+    } else {
+      /* Keep going */
+      words[stdin_position][strlen(words[stdin_position])-1] = 0;   /* Strip the \n */
+    }
+    /* Move! */
+    stdin_position++;
+  }
+  /* Resize words to fit. */
+  dict_size = stdin_position;
+  words = realloc(words, stdin_position * sizeof(char*));
+  if (words == NULL) {
+    fprintf(stderr, "Error reallocating memory for words after the loop.\n");
+    exit(-1);
+  }
+
+
 
   /* Process Dictionary into a Trie */
     /* DO NOT: Mutate the array as we work. */
-    /* IDEA: Use this as a consumer? */
 
   /* Find the reverse of each item in the array in the dictionary */
     /* If it exists, place it in an output array (We'll need to do some light sort). */
     /* Else, nothing. */
-  /* Output the array as a list, broken by \n */
 
+  /* Output the array as a list, broken by \n */
+  int stdout_position;
+  fprintf(stderr, "dict_size: %d\n", dict_size);
+  for (stdout_position = 0; stdout_position < dict_size; stdout_position++) { 
+    fprintf(stderr, "STDOUT Position: %d\n", stdout_position);
+    fprintf(stdout, "STDOUT Word: %s\n", words[stdout_position]); /* DEBUGING */
+  }
 
   /* Done! */
   exit(0);

@@ -2,7 +2,7 @@
 all: clean palin
 
 run: clean palin
-	echo "test\ntests\ntset" | ./palin
+	cat smallwords | ./palin
 
 palin:
 	gcc --ansi palin.c -o palin -pthread -Wall
