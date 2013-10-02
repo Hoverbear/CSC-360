@@ -20,6 +20,15 @@ enum alphabet {
   a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t, u, v, w, x, y, z
 };
 
+/* Dictionary
+ * ----------
+ * A simple struct to hold the stdin dictionary and it's length.
+ */
+struct stdin_dictionary {
+  int size;
+  char** words;
+};
+
 /* Trie Node
  * --------------
  * A Trie node.
@@ -81,21 +90,12 @@ int trie_find(struct trie_node trie, char* item) {
  * Grows the `words` global as exponentially then resizes it back down afterwards
  * to avoid a ton of reallocs.
  */
-void parse_input(int* dict_size, char*** words) {
-  
-
-}
-
-/* Main
- * ----
- * Please see `./a1.pdf` for a description of the problem for this program.
- */
-int main(int argc, char *argv[]) {
-  /* Variable Init */
-  int dict_size = 1;
+struct stdin_dictionary* parse_input() {
+  struct stdin_dictionary *dict = calloc(1, sizeof(struct stdin_dictionary));
+  dict->size = 1;
+  dict->words = malloc(dict->size * sizeof(char*));
   int stdin_position = 0;
-  char** words = malloc(dict_size * sizeof(char*));
-  if (words == NULL) {
+  if (dict->words == NULL) {
     fprintf(stderr, "Error allocating memory for words.\n");
     exit(-1);
   }
@@ -105,39 +105,50 @@ int main(int argc, char *argv[]) {
   for (;;) {
     fprintf(stderr, "STDIN Position: %d\n", stdin_position);
     /* Do we need to enlarge the words array? */
-    if (stdin_position >= dict_size - 1) {
-      dict_size *= 2;
-      words = realloc (words, dict_size * sizeof(char*));
-      if (words == NULL) {
+    if (stdin_position >= dict->size - 1) {
+      dict->size *= 2;
+      dict->words = realloc (dict->words, dict->size * sizeof(char*));
+      if (dict->words == NULL) {
         fprintf(stderr, "Error reallocating memory for words.\n");
         exit(-1);
       }
     }
     
     /* Add the item */
-    words[stdin_position] = malloc(256 * sizeof(char*));
-    if (words[stdin_position] == NULL) {
+    dict->words[stdin_position] = malloc(256 * sizeof(char*));
+    if (dict->words[stdin_position] == NULL) {
       fprintf(stderr, "Error allocating memory for fgets.\n");
     }
 
-    char* status = fgets(words[stdin_position], 256, stdin);
+    void* status = fgets(dict->words[stdin_position], 256, stdin);
     if (status == NULL) {
       /* Done STDIN */
       break;
     } else {
       /* Keep going */
-      words[stdin_position][strlen(words[stdin_position])-1] = 0;   /* Strip the \n */
+      dict->words[stdin_position][strlen(dict->words[stdin_position])-1] = 0;   /* Strip the \n */
     }
     /* Move! */
     stdin_position++;
   }
   /* Resize words to fit. */
-  dict_size = stdin_position;
-  words = realloc(words, stdin_position * sizeof(char*));
-  if (words == NULL) {
+  dict->size = stdin_position;
+  dict->words = realloc(dict->words, stdin_position * sizeof(char*));
+  if (dict->words == NULL) {
     fprintf(stderr, "Error reallocating memory for words after the loop.\n");
     exit(-1);
   }
+  return dict;
+}
+
+/* Main
+ * ----
+ * Please see `./a1.pdf` for a description of the problem for this program.
+ */
+int main(int argc, char *argv[]) {
+  /* Variable Init */
+  struct stdin_dictionary *input = parse_input();
+  
 
 
 
@@ -150,10 +161,10 @@ int main(int argc, char *argv[]) {
 
   /* Output the array as a list, broken by \n */
   int stdout_position;
-  fprintf(stderr, "dict_size: %d\n", dict_size);
-  for (stdout_position = 0; stdout_position < dict_size; stdout_position++) { 
+  fprintf(stderr, "dict_size: %d\n", input->size);
+  for (stdout_position = 0; stdout_position < input->size; stdout_position++) { 
     fprintf(stderr, "STDOUT Position: %d\n", stdout_position);
-    fprintf(stdout, "STDOUT Word: %s\n", words[stdout_position]); /* DEBUGING */
+    fprintf(stdout, "STDOUT Word: %s\n", input->words[stdout_position]); /* DEBUGING */
   }
 
   /* Done! */
