@@ -12,6 +12,9 @@
 #include <pthread.h>      /* Threads! =D! */
 #include <errno.h>
 
+#define MAX_WORD_LENGTH 256
+#define ASCII_STARTS    97
+
 /* Alphabet Enum
  * --------------
  * Used for links[] lookups?
@@ -35,11 +38,20 @@ struct stdin_dictionary {
  */
 struct trie_node {
   /* Is this node the end of a word? */
-  int word;
-  /* The value of the node. Not strictly necessary. */
-  char value;
+  int words;
   /* The links to child nodes. */  
   struct trie_node* links[26];
+};
+
+/* Trie request packet
+ * -------------------
+ * Since we will be using threads heavily, and threads only allow one arg,
+ * we'll define this struct to handle passing params around.
+ */
+struct trie_request {
+  struct trie_node* node;
+  char* item;
+  int position;
 };
 
 /* Add to a Trie
@@ -51,15 +63,39 @@ struct trie_node {
  *   - char* item:
  *        What **remains** of the item we're adding.
  */
-int trie_add(struct trie_node trie, char* item) {
+int trie_add(struct trie_request* request) {
   /* Detect if item == "" */
+  if (request->position == strlen(request->item) -1) {
     /* If yes, we're done. */
-      /* Set the value to be a word and return up the stack. */
+    /* Set the value to be a word and return up the stack. */
+    request->node->words += 1;
+    return 1;
+  } else {
     /* Else, there's still a ways to go. */
-      /* Find the next value, this is item[0]. */
-      /* See if a trie node at trie[value] exists. */
-        /* If yes, call add again on that node with item[1..] */
-        /* Else, Create a new trie_node, and call add on that! */
+    /* Find the next value, this is item[0]. */
+    int links_index = request->item[request->position] - 97;
+    /* See if a trie node at trie[value] exists. */
+    if (request->node->links[links_index] != NULL) {
+      /* If yes, call add again on that node with item[1..] */
+      request->node = (struct trie_node*) &request->node->links[links_index];
+      request->position += 1;
+      return trie_add(request);
+    } else {
+      /* Else, Create a new trie_node, and call add on that! */
+      request->node->links[links_index] = calloc(1, sizeof(struct trie_node*));
+      if (request->node->links[links_index] == NULL) {
+        fprintf(stderr, "Error allocating a new trie node.\n");
+        exit(-1);
+      }
+      /* Set up vals */
+      request->node->links[links_index]->words = 0;
+
+      /* Move */
+      request->node = (struct trie_node*) &request->node->links[links_index];
+      request->position += 1;
+      return trie_add(request);
+    }
+  }
   return 0;
 }
 
@@ -72,15 +108,31 @@ int trie_add(struct trie_node trie, char* item) {
  *   - char* item:
  *        What **remains** of the item we're finding..
  */
-int trie_find(struct trie_node trie, char* item) {
+int trie_find(struct trie_request* request) {
   /* Detect if item == "" */
+  if (request->position == strlen(request->item) -1) {
     /* If yes, we're done. */
       /* See if value is a word and return up the stack. */
+    if (request->node->words >= 1) {
+      return 1;
+    } else {
+      return 0;
+    }
+  } else {
     /* Else, there's still a ways to go. */
-      /* Find the next value, this is item[0]. */
-      /* See if a trie node at trie[value] exists. */
-        /* If yes, call find again on that node with item[1..] */
-        /* Else, the word doesn't exist, return false up the stack. */
+    /* Find the next value, this is item[0]. */
+    int links_index = request->item[request->position] - 97;
+    /* See if a trie node at trie[value] exists. */
+    if (request->node->links[links_index] != NULL) {
+      /* If yes, call find again on that node with item[1..] */
+      request->position += 1;
+      request->node = (struct trie_node*) &request->node->links[links_index];
+      return trie_find(request);
+    } else {
+      /* Else, the word doesn't exist, return false up the stack. */
+      return 0;
+    }
+  }
   return 0;
 }
 
@@ -92,6 +144,10 @@ int trie_find(struct trie_node trie, char* item) {
  */
 struct stdin_dictionary* parse_input() {
   struct stdin_dictionary *dict = calloc(1, sizeof(struct stdin_dictionary));
+  if (dict == NULL) {
+    fprintf(stderr, "Error allocating memory for words.\n");
+    exit(-1);
+  }
   dict->size = 1;
   dict->words = malloc(dict->size * sizeof(char*));
   int stdin_position = 0;
@@ -103,7 +159,6 @@ struct stdin_dictionary* parse_input() {
   /* Take in dictionary from STDIN */
   /* Threading Potential: 0/10 */
   for (;;) {
-    fprintf(stderr, "STDIN Position: %d\n", stdin_position);
     /* Do we need to enlarge the words array? */
     if (stdin_position >= dict->size - 1) {
       dict->size *= 2;
@@ -115,7 +170,7 @@ struct stdin_dictionary* parse_input() {
     }
     
     /* Add the item */
-    dict->words[stdin_position] = malloc(256 * sizeof(char*));
+    dict->words[stdin_position] = calloc(256, sizeof(char*));
     if (dict->words[stdin_position] == NULL) {
       fprintf(stderr, "Error allocating memory for fgets.\n");
     }
@@ -126,7 +181,9 @@ struct stdin_dictionary* parse_input() {
       break;
     } else {
       /* Keep going */
-      dict->words[stdin_position][strlen(dict->words[stdin_position])-1] = 0;   /* Strip the \n */
+      if (dict->words[stdin_position][strlen(dict->words[stdin_position])-1] == '\n') {
+        dict->words[stdin_position][strlen(dict->words[stdin_position])-1] = 0;   /* Strip the \n */
+      }
     }
     /* Move! */
     stdin_position++;
@@ -141,6 +198,24 @@ struct stdin_dictionary* parse_input() {
   return dict;
 }
 
+/* Reverse a string
+ * ----------------
+ * Just reverses a string and returns it.
+ */
+char* reverse(char* item) {
+  int size = strlen(item) - 1;
+  char *reverse = calloc(size, sizeof(char*));
+  if (reverse == NULL) {
+    fprintf(stderr, "Couldn't allocate reverse memory.\n");
+    exit(-1);
+  }
+  int step;
+  for (step = 0; step <= size; step++) {
+    reverse[step] = item[size - step];
+  }
+  return reverse;
+}
+
 /* Main
  * ----
  * Please see `./a1.pdf` for a description of the problem for this program.
@@ -148,23 +223,70 @@ struct stdin_dictionary* parse_input() {
 int main(int argc, char *argv[]) {
   /* Variable Init */
   struct stdin_dictionary *input = parse_input();
-  
-
-
+  struct trie_node *root = calloc(1, sizeof(struct trie_node*));
+  if (root == NULL) {
+    fprintf(stderr, "Error allocating root trie node.\n");
+    exit(-1);
+  }
 
   /* Process Dictionary into a Trie */
+  int trie_processor;
+  for (trie_processor = 0; trie_processor < input->size; trie_processor++) {
+    fprintf(stderr, "Adding %s\n", input->words[trie_processor]);
     /* DO NOT: Mutate the array as we work. */
+    struct trie_request *request = calloc(1, sizeof(struct trie_request*));
+    request->node = root;
+    request->item = input->words[trie_processor];
+    request->position = 0;
+    /* Later, this will be a pthread call. */
+    trie_add(request);
+    free(request);
+  }
+
+  int output_size = 1;
+  int output_position = 0;
+  char** output = calloc(output_size, sizeof(char*));
+  if (output == NULL) {
+    fprintf(stderr, "Error allocating the output array.\n");
+    exit(-1);
+  }
 
   /* Find the reverse of each item in the array in the dictionary */
-    /* If it exists, place it in an output array (We'll need to do some light sort). */
-    /* Else, nothing. */
+  int trie_finder;
+  for (trie_finder = 0; trie_finder < input->size; trie_finder++) {
+    fprintf(stderr, "Finding %s\n", input->words[trie_finder]);
+    struct trie_request *request = calloc(1, sizeof(struct trie_request*));
+    request->node = root;
+    request->item = reverse(input->words[trie_finder]);
+    request->position = 0;
+    /* TODO: Write a reverse function */
+    /* Later, this will be a pthread call. */
+    int status = trie_find(request);
+    if (status == 1) {
+      /* If it exists, place it in an output array (We'll need to do some light sort). */ 
+      if (output_position >= output_size - 1) {
+        output_size *= 2;
+        output = realloc(output, output_size * sizeof(char*));
+        if (output == NULL) {
+          fprintf(stderr, "Error reallocating memory for words.\n");
+          exit(-1);
+        }
+      }
+      output[output_position] = input->words[trie_finder];
+      output_position++;
+    } else {
+      /* Else, nothing. */
+      continue;
+    }
+  }
+  /* Resize the output as needed */
+  output_size = output_position;
+  output = realloc(output, output_position * sizeof(char*));
 
   /* Output the array as a list, broken by \n */
   int stdout_position;
-  fprintf(stderr, "dict_size: %d\n", input->size);
-  for (stdout_position = 0; stdout_position < input->size; stdout_position++) { 
-    fprintf(stderr, "STDOUT Position: %d\n", stdout_position);
-    fprintf(stdout, "STDOUT Word: %s\n", input->words[stdout_position]); /* DEBUGING */
+  for (stdout_position = 0; stdout_position < output_size; stdout_position++) { 
+    fprintf(stdout, "%s\n", output[stdout_position]);
   }
 
   /* Done! */
