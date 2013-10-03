@@ -2,7 +2,7 @@
 all: clean palin
 
 run: clean palin
-	cat words | palin
+	echo "test\ntests\ntset" | ./palin
 
 palin:
 	gcc --ansi palin.c -o palin -pthread -Wall
