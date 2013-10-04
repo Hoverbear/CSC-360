@@ -50,15 +50,17 @@ typedef struct trie_request {
 /* Add to a Trie
  * -------------
  * Recursively steps through a string and adds it to the trie.
- * Params:
+ * Params: (in a trie_request)
  *   - struct trie_node trie:
  *        The Trie we're adding to. This need not be the root.
  *   - char* item:
  *        What **remains** of the item we're adding.
+ *   - int position:
+ *        What position we are in the word.
  */
 int trie_add(trie_request* request) {
   /* Detect if item == "" */
-  if (request->position == strlen(request->item) -1) {
+  if (request->position == strlen(request->item)-1) {
     /* If yes, we're done. */
     /* Set the value to be a word and return up the stack. */
     request->node->words += 1;
@@ -99,13 +101,16 @@ int trie_add(trie_request* request) {
 /* Find in a Trie
  * -------------
  * Recursively steps through a string and finds it in the trie.
- * Params:
+ * Params: (in a trie_request)
  *   - struct trie_node trie:
  *        The Trie we're finding in. This need not be the root.
  *   - char* item:
- *        What **remains** of the item we're finding..
+ *        What we're finding.
+ *   - int position:
+ *       The position of the word we're in.
  */
 int trie_find(trie_request* request) {
+	fprintf(stderr, "%s[%c]: %d\n", request->item, request->item[request->position], request->node->words);
   /* Detect if item == "" */
   if (request->position == strlen(request->item) -1) {
     /* If yes, we're done. */
@@ -201,7 +206,7 @@ stdin_dictionary* parse_input() {
 
 /* Reverse a string
  * ----------------
- * Just reverses a string and returns it.
+ * Just reverses a string and returns a copy it.
  */
 char* reverse(char* item) {
   int size = strlen(item) - 1;
@@ -242,7 +247,6 @@ int main(int argc, char *argv[]) {
     trie_add(request);
     free(request);
   }
-	fprintf(stderr, "First: %s\n", input->words[0]);
   int output_size = input->size;
   char** output = calloc(output_size, sizeof(char*));
   if (output == NULL) {
@@ -252,7 +256,6 @@ int main(int argc, char *argv[]) {
 
   /* Find the reverse of each item in the array in the dictionary */
   int trie_finder;
-	fprintf(stderr, "First: %s\n", input->words[0]);
   for (trie_finder = 0; trie_finder < input->size; trie_finder++) {
     trie_request *request = calloc(1, sizeof(trie_request));
     request->node = root;
