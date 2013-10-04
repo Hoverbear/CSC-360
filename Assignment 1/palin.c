@@ -15,13 +15,6 @@
 #define MAX_WORD_LENGTH 256
 #define ASCII_STARTS    97
 
-/* Alphabet Enum
- * --------------
- * Used for links[] lookups?
- */
-enum alphabet {
-  a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t, u, v, w, x, y, z
-};
 
 /* Dictionary
  * ----------
@@ -40,7 +33,7 @@ struct trie_node {
   /* Is this node the end of a word? */
   int words;
   /* The links to child nodes. */  
-  struct trie_node* links[26];
+  struct trie_node* links[27];
 };
 
 /* Trie request packet
@@ -74,6 +67,10 @@ int trie_add(struct trie_request* request) {
     /* Else, there's still a ways to go. */
     /* Find the next value, this is item[0]. */
     int links_index = request->item[request->position] - 97;
+		if ((links_index < 0) || (links_index > 97)) {
+			/* The value is something special, like a hypen */
+			links_index = 26;
+		}
     /* See if a trie node at trie[value] exists. */
     if (request->node->links[links_index] != NULL) {
       /* If yes, call add again on that node with item[1..] */
@@ -122,6 +119,10 @@ int trie_find(struct trie_request* request) {
     /* Else, there's still a ways to go. */
     /* Find the next value, this is item[0]. */
     int links_index = request->item[request->position] - 97;
+		if ((links_index < 0) || (links_index > 97)) {
+			/* The value is something special, like a hypen */
+			links_index = 26;
+		}
     /* See if a trie node at trie[value] exists. */
     if (request->node->links[links_index] != NULL) {
       /* If yes, call find again on that node with item[1..] */
@@ -204,7 +205,7 @@ struct stdin_dictionary* parse_input() {
  */
 char* reverse(char* item) {
   int size = strlen(item) - 1;
-  char *reverse = calloc(size, sizeof(char*));
+  char* reverse = calloc(size, sizeof(char*));
   if (reverse == NULL) {
     fprintf(stderr, "Couldn't allocate reverse memory.\n");
     exit(-1);
@@ -231,18 +232,18 @@ int main(int argc, char *argv[]) {
 
   /* Process Dictionary into a Trie */
   int trie_processor;
+	fprintf(stderr, "First: %s\n", input->words[0]);
   for (trie_processor = 0; trie_processor < input->size; trie_processor++) {
-    fprintf(stderr, "Adding %s\n", input->words[trie_processor]);
     /* DO NOT: Mutate the array as we work. */
     struct trie_request *request = calloc(1, sizeof(struct trie_request*));
     request->node = root;
-    request->item = input->words[trie_processor];
+		request->item = input->words[trie_processor];
     request->position = 0;
     /* Later, this will be a pthread call. */
     trie_add(request);
     free(request);
   }
-
+	fprintf(stderr, "First: %s\n", input->words[0]);
   int output_size = 1;
   int output_position = 0;
   char** output = calloc(output_size, sizeof(char*));
@@ -253,8 +254,8 @@ int main(int argc, char *argv[]) {
 
   /* Find the reverse of each item in the array in the dictionary */
   int trie_finder;
+	fprintf(stderr, "First: %s\n", input->words[0]);
   for (trie_finder = 0; trie_finder < input->size; trie_finder++) {
-    fprintf(stderr, "Finding %s\n", input->words[trie_finder]);
     struct trie_request *request = calloc(1, sizeof(struct trie_request*));
     request->node = root;
     request->item = reverse(input->words[trie_finder]);
