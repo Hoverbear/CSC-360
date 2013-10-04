@@ -58,10 +58,12 @@ typedef struct trie_request {
  */
 int trie_add(trie_request* request) {
   /* Detect if item == "" */
-  if (request->position == strlen(request->item) -1) {
+	fprintf(stderr, "Pos: %d Len: %d \n", request->position, strlen(request->item));
+  if (request->position == strlen(request->item)) {
     /* If yes, we're done. */
     /* Set the value to be a word and return up the stack. */
     request->node->words += 1;
+		fprintf(stderr, "Words is now: %d\n", (int) request->node->words);
     return 1;
   } else {
     /* Else, there's still a ways to go. */
@@ -73,6 +75,7 @@ int trie_add(trie_request* request) {
 		}
     /* See if a trie node at trie[value] exists. */
     if (request->node->links[links_index] != NULL) {
+			fprintf(stderr, "  %c   ", (char) links_index + 97);
       /* If yes, call add again on that node with item[1..] */
       request->node = request->node->links[links_index];
       request->position += 1;
@@ -84,6 +87,7 @@ int trie_add(trie_request* request) {
         fprintf(stderr, "Error allocating a new trie node.\n");
         exit(-1);
       }
+			fprintf(stderr, "  %c   ", (char) links_index + 97);
       /* Set up vals */
       request->node->links[links_index]->words = 0;
 
@@ -107,11 +111,12 @@ int trie_add(trie_request* request) {
  */
 int trie_find(trie_request* request) {
   /* Detect if item == "" */
-  if (request->position == strlen(request->item) -1) {
+  if (request->position == strlen(request->item)) {
     /* If yes, we're done. */
-      /* See if value is a word and return up the stack. */
+		fprintf(stderr, "Words: %d\n", request->node->words);
     if (request->node->words >= 1) {
-      return 1;
+      /* See if value is a word and return up the stack. */
+			return 1;
     } else {
       return 0;
     }
