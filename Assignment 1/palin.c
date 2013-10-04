@@ -69,10 +69,10 @@ int trie_add(trie_request* request) {
     /* Else, there's still a ways to go. */
     /* Find the next value, this is item[0]. */
     int links_index = request->item[request->position] - 97;
-		if ((links_index < 0) || (links_index > 97)) {
-			/* The value is something special, like a hypen */
-			links_index = 26;
-		}
+    if ((links_index < 0) || (links_index > 97)) {
+      /* The value is something special, like a hypen */
+      links_index = 26;
+    }
     /* See if a trie node at trie[value] exists. */
     if (request->node->links[links_index] != NULL) {
       /* If yes, call add again on that node with item[1..] */
@@ -114,7 +114,7 @@ int trie_find(trie_request* request) {
     /* If yes, we're done. */
     if (request->node->words >= 1) {
       /* See if value is a word and return up the stack. */
-			return 1;
+      return 1;
     } else {
       return 0;
     }
@@ -122,10 +122,10 @@ int trie_find(trie_request* request) {
     /* Else, there's still a ways to go. */
     /* Find the next value, this is item[0]. */
     int links_index = request->item[request->position] - 97;
-		if ((links_index < 0) || (links_index > 97)) {
-			/* The value is something special, like a hypen */
-			links_index = 26;
-		}
+    if ((links_index < 0) || (links_index > 97)) {
+      /* The value is something special, like a hypen */
+      links_index = 26;
+    }
     /* See if a trie node at trie[value] exists. */
     if (request->node->links[links_index] != NULL) {
       /* If yes, call find again on that node with item[1..] */
@@ -239,7 +239,7 @@ int main(int argc, char *argv[]) {
     /* DO NOT: Mutate the array as we work. */
     trie_request *request = calloc(1, sizeof(trie_request));
     request->node = root;
-		request->item = input->words[trie_processor];
+    request->item = input->words[trie_processor];
     request->position = 0;
     /* Later, this will be a pthread call. */
     trie_add(request);
@@ -263,7 +263,7 @@ int main(int argc, char *argv[]) {
     int status = trie_find(request);
     if (status == 1) {
       /* If it exists, place it in an output array (no sorting needed) */ 
-			output[trie_finder] = input->words[trie_finder];
+      output[trie_finder] = input->words[trie_finder];
     } else {
       /* Else, nothing. */
       continue;
@@ -274,7 +274,7 @@ int main(int argc, char *argv[]) {
   int stdout_position;
   for (stdout_position = 0; stdout_position < output_size; stdout_position++) { 
     if (output[stdout_position] != NULL) {
-			fprintf(stdout, "%s\n", output[stdout_position]);    	
+      fprintf(stdout, "%s\n", output[stdout_position]);     
     }
   }
 
