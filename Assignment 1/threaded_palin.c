@@ -1,5 +1,6 @@
 /* A1 CSC 360 UVIC 2013 FALL
  * Andrew Hobden (V00788452)
+ * -------------------------
  * USAGE: make run
  * OR: make && cat words | palin
  */
@@ -14,6 +15,7 @@
 
 #define MAX_WORD_LENGTH 256
 #define ASCII_STARTS    97
+#define THREADS_TO_USE  4
 
 
 /* Dictionary
@@ -25,8 +27,9 @@ typedef struct stdin_dictionary {
   char** words;
 } stdin_dictionary;
 
+
 /* Trie Node
- * --------------
+ * ---------
  * A Trie node.
  */
 typedef struct trie_node {
@@ -34,6 +37,7 @@ typedef struct trie_node {
   int words;
   /* The links to child nodes. */  
   struct trie_node *links[27];
+  pthread_mutex_t lock;
 } trie_node;
 
 /* Trie request packet
@@ -46,6 +50,20 @@ typedef struct trie_request {
   char* item;
   int position;
 } trie_request;
+
+/* Job
+ * ---
+ * A job packet for threads. This is passed to `add_worker` and `find_worker`.
+ * Avoid mutating the `dictionary` or `root` yourself, let the trie calls do that.
+ */
+typedef struct job {
+  int start;                    /* The location to start in the inputted array. */
+  int stop;                     /* The location to stop in the inputted array. */
+  trie_node** root;             /* The root of our trie. */
+  stdin_dictionary* input;     /* The input dictionary. */
+  char** output;                /* The output array. (Why not a dict? We don't need a size.) */
+} job;
+
 
 /* Add to a Trie
  * -------------
@@ -63,7 +81,9 @@ int trie_add(trie_request* request) {
   if (request->position == strlen(request->item)) {
     /* If yes, we're done. */
     /* Set the value to be a word and return up the stack. */
+    pthread_mutex_lock(&request->node->lock);
     request->node->words += 1;
+    pthread_mutex_unlock(&request->node->lock);
     return 1;
   } else {
     /* Else, there's still a ways to go. */
@@ -80,6 +100,7 @@ int trie_add(trie_request* request) {
       request->position += 1;
       return trie_add(request);
     } else {
+      pthread_mutex_lock(&request->node->lock);
       /* Else, Create a new trie_node, and call add on that! */
       request->node->links[links_index] = calloc(1, sizeof(trie_node));
       if (request->node->links[links_index] == NULL) {
@@ -88,6 +109,7 @@ int trie_add(trie_request* request) {
       }
       /* Set up vals */
       request->node->links[links_index]->words = 0;
+      pthread_mutex_unlock(&request->node->lock);
       /* Move */
       request->node = request->node->links[links_index];
       request->position += 1;
@@ -138,6 +160,67 @@ int trie_find(trie_request* request) {
     }
   }
   return 0;
+}
+
+/* Trie Adder Worker
+ * ------------------
+ * Basically our "Bob the Builder" this worker accepts a job struct.
+ * Params: (in a job struct)
+ *   - int start:
+ *        The location to start in the inputted array.
+ *   - int stop:
+ *        The location to stop in the inputted array.
+ *   - trie_node** root:
+ *        The root of our trie.
+ *        You shouldn't mutate this, but the trie_add function call **should**.
+ *   - stdin_dictionary** input:
+ *        The input dictionary.
+ *   - char** output:
+ *        The output array. (Why not a dict? We don't need a size.)
+ */
+void *add_worker(void *job_req) {
+  fprintf(stderr, "Starting thread! %d\n", job_req);
+  job *job = job_req;
+  /* Loop */
+  int pos;
+  for (pos = job->start; pos <= job->stop; pos++) {
+    /* Setup */
+    trie_request *request = calloc(1, sizeof(trie_request));
+    request->node = *job->root;
+    request->item = job->input->words[pos];
+    request->position = 0;
+    trie_add(request);
+    free(request);
+  }
+  fprintf(stderr, "Stopping thread! %d\n", job_req);
+  pthread_exit(NULL);
+  return((void *) 0);
+}
+
+/* Trie Finder Worker
+ * ------------------
+ * Basically our "Sherlock" this worker accepts a job struct.
+ * Params: (in a job struct)
+ *   - int start:
+ *        The location to start in the inputted array.
+ *   - int stop:
+ *        The location to stop in the inputted array.
+ *   - trie_node** root:
+ *        The root of our trie.
+ *        You shouldn't mutate this, at all! trie_find won't.
+ *   - stdin_dictionary** input:
+ *        The input dictionary.
+ *   - char** output:
+ *        The output array. (Why not a dict? We don't need a size.)
+ */
+void *find_worker(void *job) {
+  /* Setup */
+  
+  /* Choose Slice */
+  
+  
+  /* Loop */
+  return((void *) 0);
 }
 
 /* Parse Input
@@ -232,18 +315,37 @@ int main(int argc, char *argv[]) {
     fprintf(stderr, "Error allocating root trie node.\n");
     exit(-1);
   }
+  
+  /* How big should thread chunks be?
+   * Take note that this may not guarantee even division. That's OK,
+   * The last thread will pick up the straggling remainer. 
+   * TODO: More elegant?
+   */ 
+  int job_chunk = input->size / THREADS_TO_USE;
+  job **jobs = calloc(THREADS_TO_USE, sizeof(job*));
 
+  pthread_t *add_threads = calloc(THREADS_TO_USE, sizeof(pthread_t));
   /* Process Dictionary into a Trie */
-  int trie_processor;
-  for (trie_processor = 0; trie_processor < input->size; trie_processor++) {
-    /* DO NOT: Mutate the array as we work. */
-    trie_request *request = calloc(1, sizeof(trie_request));
-    request->node = root;
-    request->item = input->words[trie_processor];
-    request->position = 0;
-    /* Later, this will be a pthread call. */
-    trie_add(request);
-    free(request);
+  int thread_num;
+  for (thread_num = 0; thread_num < THREADS_TO_USE; thread_num++) {
+    /* Divvy up the jobs appropriately. This is a purposely simple divvy. */
+    jobs[thread_num] = calloc(1, sizeof(job));
+    jobs[thread_num]->start = thread_num * job_chunk;
+    /* On the last thread? */
+    if (thread_num == THREADS_TO_USE - 1) {
+      jobs[thread_num]->stop = input->size;
+    }
+    else {
+      jobs[thread_num]->stop = (thread_num + 1) * job_chunk;
+    }
+    jobs[thread_num]->input = input;
+    jobs[thread_num]->output = NULL; /* We don't write to this. */
+    jobs[thread_num]->root = &root;
+    pthread_create(&add_threads[thread_num], 0, add_worker, jobs[thread_num]);
+  }
+  int add_join_num;
+  for (add_join_num = 0; add_join_num < THREADS_TO_USE; add_join_num++) {
+    pthread_join(add_threads[add_join_num], NULL);
   }
   int output_size = input->size;
   char** output = calloc(output_size, sizeof(char*));
