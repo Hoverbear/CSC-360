@@ -64,6 +64,23 @@ typedef struct job {
   char** output;                /* The output array. (Why not a dict? We don't need a size.) */
 } job;
 
+/* Reverse a string
+ * ----------------
+ * Just reverses a string and returns a copy it.
+ */
+char* reverse(char* item) {
+  int size = strlen(item) - 1;
+  char* reverse = calloc(size, sizeof(char*));
+  if (reverse == NULL) {
+    fprintf(stderr, "Couldn't allocate reverse memory.\n");
+    exit(-1);
+  }
+  int step;
+  for (step = 0; step <= size; step++) {
+    reverse[step] = item[size - step];
+  }
+  return reverse;
+}
 
 /* Add to a Trie
  * -------------
@@ -135,6 +152,7 @@ int trie_find(trie_request* request) {
   if (request->position == strlen(request->item)) {
     /* If yes, we're done. */
     if (request->node->words >= 1) {
+      
       /* See if value is a word and return up the stack. */
       return 1;
     } else {
@@ -179,20 +197,22 @@ int trie_find(trie_request* request) {
  *        The output array. (Why not a dict? We don't need a size.)
  */
 void *add_worker(void *job_req) {
-  fprintf(stderr, "Starting thread! %d\n", job_req);
   job *job = job_req;
   /* Loop */
   int pos;
   for (pos = job->start; pos <= job->stop; pos++) {
     /* Setup */
     trie_request *request = calloc(1, sizeof(trie_request));
+    if (request == NULL) {
+      fprintf(stderr, "Error allocating thread request.\n");
+      exit(-1);
+    }
     request->node = *job->root;
     request->item = job->input->words[pos];
     request->position = 0;
     trie_add(request);
     free(request);
   }
-  fprintf(stderr, "Stopping thread! %d\n", job_req);
   pthread_exit(NULL);
   return((void *) 0);
 }
@@ -213,14 +233,29 @@ void *add_worker(void *job_req) {
  *   - char** output:
  *        The output array. (Why not a dict? We don't need a size.)
  */
-void *find_worker(void *job) {
-  /* Setup */
-  
-  /* Choose Slice */
-  
-  
+void *find_worker(void *job_req) {
+  job *job = job_req;
   /* Loop */
+  int pos;
+  for (pos = job->start; pos <= job->stop; pos++) {
+    /* Setup */
+    trie_request *request = calloc(1, sizeof(trie_request));
+    if (request == NULL) {
+      fprintf(stderr, "Error allocating thread request.\n");
+      exit(-1);
+    }
+    request->node = *job->root;
+    request->item = reverse(job->input->words[pos]);
+    request->position = 0;
+    int success = trie_find(request);
+    if (success == 1) {
+      job->output[pos] = job->input->words[pos];
+    }
+    free(request);
+  }
+  pthread_exit(NULL);
   return((void *) 0);
+
 }
 
 /* Parse Input
@@ -285,24 +320,6 @@ stdin_dictionary* parse_input() {
   return dict;
 }
 
-/* Reverse a string
- * ----------------
- * Just reverses a string and returns a copy it.
- */
-char* reverse(char* item) {
-  int size = strlen(item) - 1;
-  char* reverse = calloc(size, sizeof(char*));
-  if (reverse == NULL) {
-    fprintf(stderr, "Couldn't allocate reverse memory.\n");
-    exit(-1);
-  }
-  int step;
-  for (step = 0; step <= size; step++) {
-    reverse[step] = item[size - step];
-  }
-  return reverse;
-}
-
 /* Main
  * ----
  * Please see `./a1.pdf` for a description of the problem for this program.
@@ -333,7 +350,7 @@ int main(int argc, char *argv[]) {
     jobs[thread_num]->start = thread_num * job_chunk;
     /* On the last thread? */
     if (thread_num == THREADS_TO_USE - 1) {
-      jobs[thread_num]->stop = input->size;
+      jobs[thread_num]->stop = input->size-1;
     }
     else {
       jobs[thread_num]->stop = (thread_num + 1) * job_chunk;
@@ -343,38 +360,43 @@ int main(int argc, char *argv[]) {
     jobs[thread_num]->root = &root;
     pthread_create(&add_threads[thread_num], 0, add_worker, jobs[thread_num]);
   }
+
+  /* Threads join here */
   int add_join_num;
   for (add_join_num = 0; add_join_num < THREADS_TO_USE; add_join_num++) {
     pthread_join(add_threads[add_join_num], NULL);
   }
-  int output_size = input->size;
-  char** output = calloc(output_size, sizeof(char*));
-  if (output == NULL) {
-    fprintf(stderr, "Error allocating the output array.\n");
-    exit(-1);
-  }
-
-  /* Find the reverse of each item in the array in the dictionary */
-  int trie_finder;
-  for (trie_finder = 0; trie_finder < input->size; trie_finder++) {
-    trie_request *request = calloc(1, sizeof(trie_request));
-    request->node = root;
-    request->item = reverse(input->words[trie_finder]);
-    request->position = 0;
-    /* Later, this will be a pthread call. */
-    int status = trie_find(request);
-    if (status == 1) {
-      /* If it exists, place it in an output array (no sorting needed) */ 
-      output[trie_finder] = input->words[trie_finder];
-    } else {
-      /* Else, nothing. */
-      continue;
+  
+  /* Output */
+  char** output = calloc(input->size, sizeof(char*));
+  pthread_t *find_threads = calloc(THREADS_TO_USE, sizeof(pthread_t));
+  /* Process Dictionary into a Trie */
+  int find_thread_num;
+  for (find_thread_num = 0; find_thread_num < THREADS_TO_USE; find_thread_num++) {
+    /* Divvy up the jobs appropriately. This is a purposely simple divvy. */
+    jobs[find_thread_num] = calloc(1, sizeof(job));
+    jobs[find_thread_num]->start = find_thread_num * job_chunk;
+    /* On the last thread? */
+    if (find_thread_num == THREADS_TO_USE - 1) {
+      jobs[find_thread_num]->stop = input->size-1;
     }
+    else {
+      jobs[find_thread_num]->stop = (find_thread_num + 1) * job_chunk;
+    }
+    jobs[find_thread_num]->input = input;
+    jobs[find_thread_num]->output = output;
+    jobs[find_thread_num]->root = &root;
+    pthread_create(&find_threads[find_thread_num], 0, find_worker, jobs[find_thread_num]);
+  }
+  int find_join_num;
+  for (find_join_num = 0; find_join_num < THREADS_TO_USE; find_join_num++) {
+    pthread_join(find_threads[find_join_num], NULL);
   }
 
+  fprintf(stderr, "Getting ready to output!\n");
   /* Output the array as a list, broken by \n */
   int stdout_position;
-  for (stdout_position = 0; stdout_position < output_size; stdout_position++) { 
+  for (stdout_position = 0; stdout_position < input->size; stdout_position++) { 
     if (output[stdout_position] != NULL) {
       fprintf(stdout, "%s\n", output[stdout_position]);     
     }
