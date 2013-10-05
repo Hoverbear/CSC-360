@@ -12,6 +12,7 @@
 #include <unistd.h>       /* Keypress testing. */
 #include <pthread.h>      /* Threads! =D! */
 #include <errno.h>
+#include <semaphore.h>
 
 #define MAX_WORD_LENGTH 256
 #define ASCII_STARTS    97
@@ -37,7 +38,7 @@ typedef struct trie_node {
   int words;
   /* The links to child nodes. */  
   struct trie_node *links[27];
-  pthread_mutex_t lock;
+  sem_t lock;
 } trie_node;
 
 /* Trie request packet
@@ -98,9 +99,9 @@ int trie_add(trie_request* request) {
   if (request->position == strlen(request->item)) {
     /* If yes, we're done. */
     /* Set the value to be a word and return up the stack. */
-    pthread_mutex_lock(&request->node->lock);
+    sem_wait(&request->node->lock);
     request->node->words += 1;
-    pthread_mutex_unlock(&request->node->lock);
+    sem_post(&request->node->lock);
     return 1;
   } else {
     /* Else, there's still a ways to go. */
@@ -117,7 +118,7 @@ int trie_add(trie_request* request) {
       request->position += 1;
       return trie_add(request);
     } else {
-      pthread_mutex_lock(&request->node->lock);
+      sem_wait(&request->node->lock);
       /* Else, Create a new trie_node, and call add on that! */
       request->node->links[links_index] = calloc(1, sizeof(trie_node));
       if (request->node->links[links_index] == NULL) {
@@ -126,7 +127,8 @@ int trie_add(trie_request* request) {
       }
       /* Set up vals */
       request->node->links[links_index]->words = 0;
-      pthread_mutex_unlock(&request->node->lock);
+      sem_init(&request->node->links[links_index]->lock,1,1);
+      sem_post(&request->node->lock);
       /* Move */
       request->node = request->node->links[links_index];
       request->position += 1;
@@ -332,6 +334,7 @@ int main(int argc, char *argv[]) {
     fprintf(stderr, "Error allocating root trie node.\n");
     exit(-1);
   }
+  sem_init(&root->lock, 1, 1);
   
   /* How big should thread chunks be?
    * Take note that this may not guarantee even division. That's OK,
