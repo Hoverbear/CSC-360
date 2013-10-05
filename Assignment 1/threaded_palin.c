@@ -111,14 +111,15 @@ int trie_add(trie_request* request) {
       /* The value is something special, like a hypen */
       links_index = 26;
     }
+    sem_wait(&request->node->lock);
     /* See if a trie node at trie[value] exists. */
     if (request->node->links[links_index] != NULL) {
       /* If yes, call add again on that node with item[1..] */
+      sem_post(&request->node->lock);
       request->node = request->node->links[links_index];
       request->position += 1;
       return trie_add(request);
     } else {
-      sem_wait(&request->node->lock);
       /* Else, Create a new trie_node, and call add on that! */
       request->node->links[links_index] = calloc(1, sizeof(trie_node));
       if (request->node->links[links_index] == NULL) {
