@@ -397,7 +397,6 @@ int main(int argc, char *argv[]) {
     pthread_join(find_threads[find_join_num], NULL);
   }
 
-  fprintf(stderr, "Getting ready to output!\n");
   /* Output the array as a list, broken by \n */
   int stdout_position;
   for (stdout_position = 0; stdout_position < input->size; stdout_position++) { 

@@ -7,11 +7,11 @@ threaded_run: clean threaded_palin
 run: clean palin
 	cat smallwords | ./palin
 
-treaded_palin:
-	gcc --ansi threaded_palin.c -o threaded_palin -pthread -Wal
+threaded_palin:
+	gcc --ansi threaded_palin.c -o threaded_palin -Wall -pthread -lpthread -lrt
 
 palin:
 	gcc --ansi palin.c -o palin -pthread -Wall
 
 clean:
-	rm -rf *.out palin
+	rm -rf *.out palin threaded_palin
