@@ -16,7 +16,7 @@
 
 #define MAX_WORD_LENGTH 256
 #define ASCII_STARTS    97
-#define THREADS_TO_USE  4
+#define THREADS_TO_USE  2
 
 
 /* Dictionary
