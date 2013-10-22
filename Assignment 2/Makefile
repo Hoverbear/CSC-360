@@ -1,3 +1,8 @@
+mosh.c:
+	gcc mosh.c -o mosh -Wall 
+
+run: clean mosh
+	./mosh
 
 clean:
-	rm -rf bin/*
+	rm -rf mosh
