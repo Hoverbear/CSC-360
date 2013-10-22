@@ -7,15 +7,18 @@
 #include <sys/types.h>     // Defines data types used in system calls. 
 #include <string.h>        // String Functions.
 #include <errno.h>         // Error Numbers
+#include <unistd.h>        // Fork
+#include <sys/wait.h>      // Wait
 
 #define MAX_COMMAND_LENGTH 2048
+#define PS1 "mosh $> "
 
 /* print_ps1
  * -----------
  * Simply prints the PS1.
  */
 void print_ps1() {
-  fprintf(stdout, "mosh $> ");
+  fprintf(stdout, PS1);
   return;
 }
 
@@ -27,6 +30,19 @@ void print_ps1() {
  */
 int evaluate_command(char* command) {
   fprintf(stderr, "evaluate_command called with: %s\n", command);
+  
+  // Process command.
+  short process;
+  if ((process = fork()) == 0) {
+    // Child process, runs the command.
+    fprintf(stderr, "  (In fork) command is: %s\n", command);
+    exit(0);
+  } else  {
+    int returnCode;
+    while (process != wait(&returnCode)) { };
+    fprintf(stderr, "Process returned with %d\n", returnCode);
+  }
+  
   return 0;
 }
 
