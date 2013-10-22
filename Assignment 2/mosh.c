@@ -36,7 +36,8 @@ int evaluate_command(char* command) {
   if ((process = fork()) == 0) {
     // Child process, runs the command.
     fprintf(stderr, "  (In fork) command is: %s\n", command);
-    exit(0);
+    execl(command, 0);
+    exit(-1);
   } else  {
     int returnCode;
     while (process != wait(&returnCode)) { };
