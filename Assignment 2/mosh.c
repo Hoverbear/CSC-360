@@ -8,42 +8,60 @@
 #include <string.h>        // String Functions.
 #include <errno.h>         // Error Numbers
 
-#define CONFIG_FILE "~/.moshrc"
-#define DEFAULT_CONFIG_FILE "./example_moshrc"
+#define MAX_COMMAND_LENGTH 2048
 
-/* read_config
+/* print_ps1
  * -----------
- * Reads from the specified configuration file. This sets various options used in the shell. Options are listed alongside relevant code.
+ * Simply prints the PS1.
+ */
+void print_ps1() {
+  fprintf(stdout, "mosh $> ");
+  return;
+}
+
+/* evaluate_command
+ * -----------
+ * Evaluates a command
  * Parameters:
  *   * `char* path`: The path to the configuration file.
  */
-int read_config(char* path) {
-  fprintf(stderr, "read_config called.\n");
-  return -1;
-};
-
-/* event_loop
- * ----------
- * The main worker loop of the program.
- */
-int event_loop() {
-  fprintf(stderr, "event_loop called.\n");
-  return -1;
-};
+int evaluate_command(char* command) {
+  fprintf(stderr, "evaluate_command called with: %s\n", command);
+  return 0;
+}
 
 /* main
  * ----
  * Please see `./a2.pdf` for a description of the problem for this program.
  */
 int main(int argc, char *argv[]) {
-  // Read from `CONFIG_FILE`, or use defaults.
-  if (read_config(CONFIG_FILE) == -1) {
-    read_config(DEFAULT_CONFIG_FILE);
-  }
   
-  // Start main event loop.
-  if (event_loop()) {
-    return 0; 
+  // The REPL
+  for (;;) {
+    // Print the PS1.
+    print_ps1();
+    
+    // Wait for a command.
+    char* command;
+    command = calloc(MAX_COMMAND_LENGTH, sizeof(char));
+    if (command == NULL) {
+      return -1;
+    }
+    if (fgets(command, MAX_COMMAND_LENGTH, stdin) == NULL) {
+      return -1;
+    }
+    command[strlen(command)-1] = '\0';
+    command = realloc(command, strlen(command) * sizeof(char) +1);
+    if (command == NULL) {
+      return -1;
+    }
+    
+    // Evalute the command.
+    if (evaluate_command(command) == -1) {
+      return -1;
+    }
+    
+    // By now, we're done with the command. Start the process over again.
   }
-  return -1;
+  return 0;
 };
