@@ -15,6 +15,28 @@
 #define MAX_COMMAND_LENGTH 2048
 #define MAX_PS1_LENGTH 255
 
+/* Path variable */
+char** paths;
+
+/* tokenize_to_array
+ * -----------------
+ * Parse and tokenize a string into an array.
+ */
+char** tokenize_to_array(char* string, char token) {
+  char** result = NULL;
+  // Strtok mangles, make a copy.
+  char* copy = calloc(strlen(string), sizeof(char*));
+  fprintf(stderr, "%s\n", string);
+  strcpy(copy, string);
+  
+  fprintf(stderr, "%s\n", copy);
+  
+  char* item = strtok (copy, ":");
+  fprintf(stderr, "%s\n", item);
+  
+  return result;
+}
+
 /* evaluate_command
  * -----------
  * Evaluates a command
@@ -51,6 +73,8 @@ int main(int argc, char *argv[]) {
   char prompt[MAX_PS1_LENGTH] = { 0 };
   
   rl_bind_key('\t', rl_complete);
+  
+  paths = tokenize_to_array(getenv("PATH"), ':');
   
   // The REPL
   for (;;) {
