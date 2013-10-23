@@ -9,18 +9,11 @@
 #include <errno.h>         // Error Numbers
 #include <unistd.h>        // Fork
 #include <sys/wait.h>      // Wait
+#include <readline/readline.h>  // Readline
+#include <readline/history.h>   // Readline History
 
 #define MAX_COMMAND_LENGTH 2048
-#define PS1 "mosh $> "
-
-/* print_ps1
- * -----------
- * Simply prints the PS1.
- */
-void print_ps1() {
-  fprintf(stdout, PS1);
-  return;
-}
+#define MAX_PS1_LENGTH 255
 
 /* evaluate_command
  * -----------
@@ -28,15 +21,17 @@ void print_ps1() {
  * Parameters:
  *   * `char* path`: The path to the configuration file.
  */
-int evaluate_command(char* command) {
-  fprintf(stderr, "evaluate_command called with: %s\n", command);
+int evaluate_input(char* input) {
+  fprintf(stderr, "evaluate_command called with: %s\n", input);
   
   // Process command.
   short process;
   if ((process = fork()) == 0) {
     // Child process, runs the command.
-    fprintf(stderr, "  (In fork) command is: %s\n", command);
-    execl(command, 0);
+    fprintf(stderr, "  (In fork) command is: %s\n", input);
+    // TODO: Split args
+    // TODO: Handle Path
+    execl(input, "", NULL);
     exit(-1);
   } else  {
     int returnCode;
@@ -53,32 +48,32 @@ int evaluate_command(char* command) {
  */
 int main(int argc, char *argv[]) {
   
+  char prompt[MAX_PS1_LENGTH] = { 0 };
+  
+  rl_bind_key('\t', rl_complete);
+  
   // The REPL
   for (;;) {
     // Print the PS1.
-    print_ps1();
+    snprintf(prompt, sizeof(prompt), "%s :: %s :: > ", getenv("USER"), getcwd(NULL, 1024));
     
-    // Wait for a command.
-    char* command;
-    command = calloc(MAX_COMMAND_LENGTH, sizeof(char));
-    if (command == NULL) {
-      return -1;
+    // Read input.
+    char* input;
+    input = readline(prompt);
+    if (!input) {
+      // No input.
+      break;
     }
-    if (fgets(command, MAX_COMMAND_LENGTH, stdin) == NULL) {
-      return -1;
-    }
-    command[strlen(command)-1] = '\0';
-    command = realloc(command, strlen(command) * sizeof(char) +1);
-    if (command == NULL) {
-      return -1;
-    }
+    // At it to history.
+    add_history(input);
     
     // Evalute the command.
-    if (evaluate_command(command) == -1) {
+    if (evaluate_input(input) == -1) {
       return -1;
     }
     
-    // By now, we're done with the command. Start the process over again.
+    // By now, we're done with the input. Start the process over again.
+    free(input);
   }
   return 0;
 };
