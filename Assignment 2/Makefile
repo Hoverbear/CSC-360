@@ -1,4 +1,6 @@
-mosh.c:
+all: mosh
+
+mosh:
 	gcc mosh.c -o mosh -Wall -lreadline
 
 run: clean mosh
