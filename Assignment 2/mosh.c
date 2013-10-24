@@ -16,13 +16,18 @@
 #define MAX_PS1_LENGTH 255
 
 /* Path variable */
-char** paths;
+typedef struct word_array {
+  int size;
+  char** items;
+} word_array;
+
+word_array* paths;
 
 /* tokenize_to_array
  * -----------------
  * Parse and tokenize a string into an array.
  */
-char** tokenize_to_array(char* string, char token) {
+word_array* tokenize_to_array(char* string, char* token) {
   int index = 0;
   int result_size = 1;
   char** result = calloc(index + 1, sizeof(char*));
@@ -38,7 +43,7 @@ char** tokenize_to_array(char* string, char token) {
   }
   strcpy(copy, string);
   
-  char* item = strtok (copy, ":");
+  char* item = strtok (copy, token);
   while (item) {    
     if (index + 1 > result_size) {
       result_size += 1;
@@ -56,10 +61,13 @@ char** tokenize_to_array(char* string, char token) {
     strcpy(result[index], item);
     
     index += 1;
-    item = strtok (NULL, ":");
+    item = strtok (NULL, token);
   }
   free(copy);
-  return result;
+  word_array* the_struct = calloc(1, sizeof(word_array));
+  the_struct->size = result_size - 1;
+  the_struct->items = result;
+  return the_struct;
 }
 
 /* evaluate_command
@@ -69,21 +77,29 @@ char** tokenize_to_array(char* string, char token) {
  *   * `char* path`: The path to the configuration file.
  */
 int evaluate_input(char* input) {
-  fprintf(stderr, "evaluate_command called with: %s\n", input);
-  
   // Process command.
   short process;
+  char* command_buffer = calloc(0,0);
+  word_array* tokens;
   if ((process = fork()) == 0) {
     // Child process, runs the command.
-    fprintf(stderr, "  (In fork) command is: %s\n", input);
-    // TODO: Split args
+    for (int index = paths->size; index > 0; index--) {
+      tokens = tokenize_to_array(input, " ");
+      command_buffer = calloc(sizeof(paths->items[index]) + sizeof(tokens->items[0]) + 1, sizeof(char));
+      strcat(command_buffer, paths->items[index]);
+      strcat(command_buffer, "/");
+      strcat(command_buffer, tokens->items[0]);
+      
+      fprintf(stderr, "Parsed command: %s\n", command_buffer);
+      fprintf(stderr, "First token: %s\n", tokens->items[1]);
+      
+      execv(command_buffer, tokens->items);
+    }
     // TODO: Handle Path
-    execl(input, "", NULL);
     exit(-1);
   } else  {
     int returnCode;
     while (process != wait(&returnCode)) { };
-    fprintf(stderr, "Process returned with %d\n", returnCode);
   }
   
   return 0;
@@ -98,8 +114,8 @@ int main(int argc, char *argv[]) {
   char prompt[MAX_PS1_LENGTH] = { 0 };
   
   rl_bind_key('\t', rl_complete);
-  
-  paths = tokenize_to_array(getenv("PATH"), ':');
+  fprintf(stderr, "%s\n", getenv("PATH"));
+  paths = tokenize_to_array(getenv("PATH"), ":");
   
   // The REPL
   for (;;) {
