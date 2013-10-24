@@ -23,17 +23,42 @@ char** paths;
  * Parse and tokenize a string into an array.
  */
 char** tokenize_to_array(char* string, char token) {
-  char** result = NULL;
+  int index = 0;
+  int result_size = 1;
+  char** result = calloc(index + 1, sizeof(char*));
+  if (result == NULL) {
+    fprintf(stderr, "Couldn't allocate room for result.\n");
+    exit(-1);
+  }
   // Strtok mangles, make a copy.
-  char* copy = calloc(strlen(string), sizeof(char*));
-  fprintf(stderr, "%s\n", string);
+  char* copy = calloc(strlen(string), sizeof(char));
+  if (copy == NULL) {
+    fprintf(stderr, "Couldn't allocate room for copy.\n");
+    exit(-1);
+  }
   strcpy(copy, string);
   
-  fprintf(stderr, "%s\n", copy);
-  
   char* item = strtok (copy, ":");
-  fprintf(stderr, "%s\n", item);
-  
+  while (item) {    
+    if (index + 1 > result_size) {
+      result_size += 1;
+      result = realloc(result, result_size * sizeof(char*));
+      if (result == NULL) {
+        fprintf(stderr, "Couldn't allocate room for result.\n");
+        exit(-1);
+      }
+    }
+    result[index] = calloc(strlen(item), sizeof(char));
+    if (result[index] == NULL) {
+      fprintf(stderr, "Couldn't allocate room for result[index].\n");
+      exit(-1);
+    }
+    strcpy(result[index], item);
+    
+    index += 1;
+    item = strtok (NULL, ":");
+  }
+  free(copy);
   return result;
 }
 
@@ -79,10 +104,10 @@ int main(int argc, char *argv[]) {
   // The REPL
   for (;;) {
     // Print the PS1.
-    snprintf(prompt, sizeof(prompt), "%s :: %s :: > ", getenv("USER"), getcwd(NULL, 1024));
-    
+    snprintf(prompt, sizeof(prompt), "%s %s > ", getenv("USER"), getcwd(NULL, 1024));
     // Read input.
-    char* input;
+    char* input = calloc(1, sizeof(char*));
+
     input = readline(prompt);
     if (!input) {
       // No input.
