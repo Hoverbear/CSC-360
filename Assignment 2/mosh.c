@@ -112,36 +112,33 @@ int evaluate_input(char* input) {
   short process;
   if ((process = fork()) == 0) {
     // Child process, runs the command.
-    word_array* tokens;
+    
+    // Tokenize the input, quote sensitive.
+    word_array* tokens = tokenize_to_array(input, " ", 1); 
+    // Add the null at the end.
+    tokens->size += 1;
+    tokens->items = realloc(tokens->items, tokens->size * sizeof(char*));
+    tokens->items[tokens->size] = 0;
+    
     char* command_buffer;
     for (int index = paths->size; index > 0; index--) {
-      tokens = tokenize_to_array(input, " ", 1);
-      
       // Need to parse the first command and test for paths.
       command_buffer = calloc(sizeof(paths->items[index]) + sizeof(tokens->items[0]) + 1, sizeof(char));
       if (command_buffer == NULL) {
         fprintf(stderr, "Couldn't allocate a command buffer.\n");
         exit(-1);
       }
-      // Get the path.
+      // Get the full path.
       strcat(command_buffer, paths->items[index]);
       strcat(command_buffer, "/");
-      strcat(command_buffer, tokens->items[0]);
-      free(tokens->items[0]);
-      tokens->items[0] = command_buffer;
-      strcpy(tokens->items[0], command_buffer);
-      
-      // Add the null at the end.
-      tokens->size += 1;
-      tokens->items = realloc(tokens->items, tokens->size * sizeof(char*));
-      tokens->items[tokens->size] = 0;
+      strcat(command_buffer, tokens->items[0]);  
         
       // Run
-      execv(tokens->items[0], tokens->items);
+      execv(command_buffer, tokens->items);
+      free(command_buffer);
     }
     // There is no command.
     fprintf(stdout,"404: Command not found.\n");
-    free(command_buffer);
     free(tokens); // command_buffer will also get freed
     exit(-1);
   } else  {
