@@ -79,15 +79,13 @@ word_array* tokenize_to_array(char* string, char* token) {
 int evaluate_input(char* input) {
   // Process command.
   short process;
-  char* command_buffer = calloc(0,0);
-  word_array* tokens;
   if ((process = fork()) == 0) {
     // Child process, runs the command.
     for (int index = paths->size; index > 0; index--) {
-      tokens = tokenize_to_array(input, " ");
+      word_array* tokens = tokenize_to_array(input, " ");
       
       // Need to parse the first command and test for paths.
-      command_buffer = calloc(sizeof(paths->items[index]) + sizeof(tokens->items[0]) + 1, sizeof(char));
+      char* command_buffer = calloc(sizeof(paths->items[index]) + sizeof(tokens->items[0]) + 1, sizeof(char));
       if (command_buffer == NULL) {
         fprintf(stderr, "Couldn't allocate a command buffer.\n");
         exit(-1);
@@ -107,7 +105,7 @@ int evaluate_input(char* input) {
       // Run
       execv(command_buffer, tokens->items);
     }
-    // TODO: Handle Path
+    fprintf(stdout,"404: Command not found.\n");
     exit(-1);
   } else  {
     int returnCode;
@@ -126,7 +124,6 @@ int main(int argc, char *argv[]) {
   char prompt[MAX_PS1_LENGTH] = { 0 };
   
   rl_bind_key('\t', rl_complete);
-  fprintf(stderr, "%s\n", getenv("PATH"));
   paths = tokenize_to_array(getenv("PATH"), ":");
   
   // The REPL
