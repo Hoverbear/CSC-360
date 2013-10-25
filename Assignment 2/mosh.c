@@ -14,6 +14,7 @@
 
 #define MAX_COMMAND_LENGTH 2048
 #define MAX_PS1_LENGTH 255
+#define OBSCURE_CHARACTER '~'
 
 /* Path variable */
 typedef struct word_array {
@@ -53,7 +54,7 @@ word_array* tokenize_to_array(char* string, char* token, int breakQuotes) {
     }
     if (copy[i] == ' ' && found) {
       // Mask spaces with a rarely used ascii character instead.
-      copy[i] = '`';
+      copy[i] = OBSCURE_CHARACTER;
     }
   }
   
@@ -86,7 +87,7 @@ word_array* tokenize_to_array(char* string, char* token, int breakQuotes) {
         // Make a note if we find quotes that we're inside.
         unfound = !unfound;
       }
-      if (result[i][j] == '`' && unfound) {
+      if (result[i][j] == OBSCURE_CHARACTER && unfound) {
         // Unmask the rarely used character and return it to a space.
         result[i][j] = ' ';
       }
@@ -122,6 +123,7 @@ int evaluate_input(char* input) {
         fprintf(stderr, "Couldn't allocate a command buffer.\n");
         exit(-1);
       }
+      // Get the path.
       strcat(command_buffer, paths->items[index]);
       strcat(command_buffer, "/");
       strcat(command_buffer, tokens->items[0]);
@@ -135,13 +137,15 @@ int evaluate_input(char* input) {
       tokens->items[tokens->size] = 0;
         
       // Run
-      execv(command_buffer, tokens->items);
+      execv(tokens->items[0], tokens->items);
     }
+    // There is no command.
     fprintf(stdout,"404: Command not found.\n");
     free(command_buffer);
     free(tokens); // command_buffer will also get freed
     exit(-1);
   } else  {
+    // Back in the parent process.
     int returnCode;
     while (process != wait(&returnCode)) { };
   }
