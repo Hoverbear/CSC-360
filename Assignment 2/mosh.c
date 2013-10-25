@@ -85,14 +85,26 @@ int evaluate_input(char* input) {
     // Child process, runs the command.
     for (int index = paths->size; index > 0; index--) {
       tokens = tokenize_to_array(input, " ");
+      
+      // Need to parse the first command and test for paths.
       command_buffer = calloc(sizeof(paths->items[index]) + sizeof(tokens->items[0]) + 1, sizeof(char));
+      if (command_buffer == NULL) {
+        fprintf(stderr, "Couldn't allocate a command buffer.\n");
+        exit(-1);
+      }
       strcat(command_buffer, paths->items[index]);
       strcat(command_buffer, "/");
       strcat(command_buffer, tokens->items[0]);
+      free(tokens->items[0]);
+      tokens->items[0] = command_buffer;
+      strcpy(tokens->items[0], command_buffer);
       
-      fprintf(stderr, "Parsed command: %s\n", command_buffer);
-      fprintf(stderr, "First token: %s\n", tokens->items[1]);
-      
+      // Add the null at the end.
+      tokens->size += 1;
+      tokens->items = realloc(tokens->items, tokens->size * sizeof(char*));
+      tokens->items[tokens->size] = 0;
+        
+      // Run
       execv(command_buffer, tokens->items);
     }
     // TODO: Handle Path
