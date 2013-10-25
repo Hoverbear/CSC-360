@@ -14,7 +14,8 @@
 
 #define MAX_COMMAND_LENGTH 2048
 #define MAX_PS1_LENGTH 255
-#define OBSCURE_CHARACTER '~'
+#define OBSCURE_CHARACTER '|'
+#define PIPE_OPERATOR "::>"
 
 /* Path variable */
 typedef struct word_array {
@@ -101,20 +102,25 @@ word_array* tokenize_to_array(char* string, char* token, int breakQuotes) {
   return the_struct;
 }
 
+int find_pipes(word_array* tokens) {
+  for (int i = 0; i <= tokens->size; i++) {
+    if (strncmp(tokens->items[i], PIPE_OPERATOR, 4) == 0) {
+      return i;
+    }
+  }
+  return -1;
+}
+
 /* evaluate_command
  * -----------
  * Evaluates a command
- * Parameters:
- *   * `char* path`: The path to the configuration file.
  */
-int evaluate_input(char* input) {
+int evaluate_input(word_array* tokens, FILE* stdin, FILE* stdout) {
   // Process command.
   short process;
   if ((process = fork()) == 0) {
     // Child process, runs the command.
     
-    // Tokenize the input, quote sensitive.
-    word_array* tokens = tokenize_to_array(input, " ", 1); 
     // Add the null at the end.
     tokens->size += 1;
     tokens->items = realloc(tokens->items, tokens->size * sizeof(char*));
@@ -139,7 +145,6 @@ int evaluate_input(char* input) {
     }
     // There is no command.
     fprintf(stdout,"404: Command not found.\n");
-    free(tokens); // command_buffer will also get freed
     exit(-1);
   } else  {
     // Back in the parent process.
@@ -176,13 +181,45 @@ int main(int argc, char *argv[]) {
     // At it to history.
     add_history(input);
     
-    // Evalute the command.
-    if (evaluate_input(input) == -1) {
-      return -1;
+    // Tokenize the input, quote sensitive.
+    word_array* tokens = tokenize_to_array(input, " ", 1); 
+    
+    // Is there a pipe?
+    int pipe_loc = find_pipes(tokens);
+    if (pipe_loc != -1) {
+      // We have a pipe.
+      
+      // Break it into multiple inputs.
+      word_array** sides = calloc(2, sizeof(word_array*));
+      sides[0] = calloc(1, sizeof(word_array));
+      sides[1] = calloc(1, sizeof(word_array));
+
+      sides[0]->size = pipe_loc;
+      sides[1]->size = tokens->size - pipe_loc;
+      
+      sides[0]->items = calloc(sides[0]->size, sizeof(char*));
+      for (int i=0; i < sides[0]->size; i++) {
+        sides[0]->items[i] = tokens->items[i];
+      }
+      
+      sides[1]->items = calloc(sides[1]->size + 1, sizeof(char*));
+      for (int i=0; i < sides[1]->size; i++) {
+        sides[1]->items[i] = tokens->items[i + pipe_loc + 1];
+      }
+      
+      evaluate_input(sides[0], stdin, stdout);
+      evaluate_input(sides[1], stdin, stdout);
+      
+    } else {
+      // No pipes. Just need to evaluate.
+      if (evaluate_input(tokens, stdin, stdout) == -1) {
+        return -1;
+      }
     }
     
     // By now, we're done with the input. Start the process over again.
     free(input);
+    free(tokens);
   }
   return 0;
 };
