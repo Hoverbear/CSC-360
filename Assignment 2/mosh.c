@@ -16,6 +16,8 @@
 #define MAX_PS1_LENGTH 255
 #define OBSCURE_CHARACTER '|'
 #define PIPE_OPERATOR "::>"
+#define STDIN 0
+#define STDOUT 1
 
 /* Path variable */
 typedef struct word_array {
@@ -115,7 +117,7 @@ int find_pipes(word_array* tokens) {
  * -----------
  * Evaluates a command
  */
-int evaluate_input(word_array* tokens, FILE* stdin, FILE* stdout) {
+int evaluate_input(word_array* tokens) {
   // Process command.
   short process;
   if ((process = fork()) == 0) {
@@ -207,12 +209,17 @@ int main(int argc, char *argv[]) {
         sides[1]->items[i] = tokens->items[i + pipe_loc + 1];
       }
       
-      evaluate_input(sides[0], stdin, stdout);
-      evaluate_input(sides[1], stdin, stdout);
+      // Plumb the pipes
+      int the_pipe[2];
+      pipe(the_pipe);
+      
+      // Evaluate
+      evaluate_input(sides[0]);
+      evaluate_input(sides[1]);
       
     } else {
       // No pipes. Just need to evaluate.
-      if (evaluate_input(tokens, stdin, stdout) == -1) {
+      if (evaluate_input(tokens) == -1) {
         return -1;
       }
     }
