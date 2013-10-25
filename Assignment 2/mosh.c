@@ -81,11 +81,13 @@ int evaluate_input(char* input) {
   short process;
   if ((process = fork()) == 0) {
     // Child process, runs the command.
+    word_array* tokens;
+    char* command_buffer;
     for (int index = paths->size; index > 0; index--) {
-      word_array* tokens = tokenize_to_array(input, " ");
+      tokens = tokenize_to_array(input, " ");
       
       // Need to parse the first command and test for paths.
-      char* command_buffer = calloc(sizeof(paths->items[index]) + sizeof(tokens->items[0]) + 1, sizeof(char));
+      command_buffer = calloc(sizeof(paths->items[index]) + sizeof(tokens->items[0]) + 1, sizeof(char));
       if (command_buffer == NULL) {
         fprintf(stderr, "Couldn't allocate a command buffer.\n");
         exit(-1);
@@ -106,6 +108,8 @@ int evaluate_input(char* input) {
       execv(command_buffer, tokens->items);
     }
     fprintf(stdout,"404: Command not found.\n");
+    free(command_buffer);
+    free(tokens); // command_buffer will also get freed
     exit(-1);
   } else  {
     int returnCode;
