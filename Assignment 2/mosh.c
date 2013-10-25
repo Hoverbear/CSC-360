@@ -27,7 +27,7 @@ word_array* paths;
  * -----------------
  * Parse and tokenize a string into an array.
  */
-word_array* tokenize_to_array(char* string, char* token) {
+word_array* tokenize_to_array(char* string, char* token, int breakQuotes) {
   int index = 0;
   int result_size = 1;
   char** result = calloc(index + 1, sizeof(char*));
@@ -35,6 +35,7 @@ word_array* tokenize_to_array(char* string, char* token) {
     fprintf(stderr, "Couldn't allocate room for result.\n");
     exit(-1);
   }
+  
   // Strtok mangles, make a copy.
   char* copy = calloc(strlen(string), sizeof(char));
   if (copy == NULL) {
@@ -42,6 +43,19 @@ word_array* tokenize_to_array(char* string, char* token) {
     exit(-1);
   }
   strcpy(copy, string);
+  
+  // Search for quotes to mask out
+  int found = 0;
+  for (int i = strlen(copy); i >= 0; i--) {
+    if (copy[i] == '"') {
+      // Make a note when we find quotes that we're inside.
+      found = !found;
+    }
+    if (copy[i] == ' ' && found) {
+      // Mask spaces with a rarely used ascii character instead.
+      copy[i] = '`';
+    }
+  }
   
   char* item = strtok (copy, token);
   while (item) {    
@@ -63,6 +77,22 @@ word_array* tokenize_to_array(char* string, char* token) {
     index += 1;
     item = strtok (NULL, token);
   }
+  
+  // Search for quotes to unmask back in
+  for (int i = result_size -1; i >= 0; i--) {
+    int unfound = 0;
+    for (int j = strlen(result[i]); j >= 0; j--) {
+      if (result[i][j] == '"') {
+        // Make a note if we find quotes that we're inside.
+        unfound = !unfound;
+      }
+      if (result[i][j] == '`' && unfound) {
+        // Unmask the rarely used character and return it to a space.
+        result[i][j] = ' ';
+      }
+    }
+  }
+    
   free(copy);
   word_array* the_struct = calloc(1, sizeof(word_array));
   the_struct->size = result_size - 1;
@@ -84,7 +114,7 @@ int evaluate_input(char* input) {
     word_array* tokens;
     char* command_buffer;
     for (int index = paths->size; index > 0; index--) {
-      tokens = tokenize_to_array(input, " ");
+      tokens = tokenize_to_array(input, " ", 1);
       
       // Need to parse the first command and test for paths.
       command_buffer = calloc(sizeof(paths->items[index]) + sizeof(tokens->items[0]) + 1, sizeof(char));
@@ -128,7 +158,7 @@ int main(int argc, char *argv[]) {
   char prompt[MAX_PS1_LENGTH] = { 0 };
   
   rl_bind_key('\t', rl_complete);
-  paths = tokenize_to_array(getenv("PATH"), ":");
+  paths = tokenize_to_array(getenv("PATH"), ":", 0);
   
   // The REPL
   for (;;) {
