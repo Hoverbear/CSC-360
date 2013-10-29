@@ -125,6 +125,10 @@ int find_seq(word_array* tokens) {
   return -1;
 }
 
+// Implicit Declarations
+void eval_pipes(word_array* tokens, int pipe_loc);
+void eval_seq(word_array* tokens, int seq_loc);
+
 /* evaluate_command
  * -----------
  * Evaluates a command
@@ -137,91 +141,10 @@ int evaluate_input(word_array* tokens) {
   
   if (pipe_loc != -1) {
     // We have a pipe.
-    
-    // Break it into multiple inputs.
-    word_array** sides = calloc(2, sizeof(word_array*));
-    sides[0] = calloc(1, sizeof(word_array));
-    if (sides[0] == NULL) {
-      fprintf(stderr, "Couldn't allocate sides[0]\n");
-      exit(-1);
-    }
-    sides[1] = calloc(1, sizeof(word_array));
-    if (sides[0] == NULL) {
-      fprintf(stderr, "Couldn't allocate sides[1]\n");
-      exit(-1);
-    }
-
-    sides[0]->size = pipe_loc;
-    sides[1]->size = tokens->size - pipe_loc;
-    
-    sides[0]->items = calloc(sides[0]->size, sizeof(char*));
-    if (sides[0]->items == NULL) {
-      fprintf(stderr, "Couldn't allocate sides[0]->items\n");
-      exit(-1);
-    }
-    for (int i=0; i < sides[0]->size; i++) {
-      sides[0]->items[i] = tokens->items[i];
-    }
-    
-    sides[1]->items = calloc(sides[1]->size + 1, sizeof(char*));
-    if (sides[1]->items == NULL) {
-      fprintf(stderr, "Couldn't allocate sides[1]->items\n");
-      exit(-1);
-    }
-    for (int i=0; i < sides[1]->size; i++) {
-      sides[1]->items[i] = tokens->items[i + pipe_loc + 1];
-    }
-    
-    // Plumb the pipes
-    int the_pipe[2];
-    pipe(the_pipe);
-    
-    // Evaluate
-    // TODO
-    evaluate_input(sides[0]);
-
-    evaluate_input(sides[1]);
-    
+    eval_pipes(tokens, pipe_loc);  
   } else if (seq_loc != -1){
     // We have a Seq.
-
-    
-    // Break it into multiple inputs.
-    word_array** sides = calloc(2, sizeof(word_array*));
-    sides[0] = calloc(1, sizeof(word_array));
-    if (sides[0] == NULL) {
-      fprintf(stderr, "Couldn't allocate sides[0]\n");
-      exit(-1);
-    }
-    sides[1] = calloc(1, sizeof(word_array));
-    if (sides[1] == NULL) {
-      fprintf(stderr, "Couldn't allocate sides[1]\n");
-      exit(-1);
-    }
-
-    sides[0]->size = seq_loc;
-    sides[1]->size = tokens->size - seq_loc;
-    
-    sides[0]->items = calloc(sides[0]->size, sizeof(char*));
-    if (sides[0]->items == NULL) {
-      fprintf(stderr, "Couldn't allocate sides[0]->items\n");
-      exit(-1);
-    }
-    for (int i=0; i < sides[0]->size; i++) {
-      sides[0]->items[i] = tokens->items[i];
-    }
-    
-    sides[1]->items = calloc(sides[1]->size + 1, sizeof(char*));
-    if (sides[1]->items == NULL) {
-      fprintf(stderr, "Couldn't allocate sides[1]->items\n");
-      exit(-1);
-    }
-    for (int i=0; i < sides[1]->size; i++) {
-      sides[1]->items[i] = tokens->items[i + seq_loc + 1];
-    }
-    // Evaluate
-    evaluate_input(sides[0]);
-    evaluate_input(sides[1]);
+    eval_seq(tokens, seq_loc);
   } else {
     // Detect `cd`
     if (strncmp(tokens->items[0], "cd", 3) == 0) {
@@ -297,6 +220,93 @@ int evaluate_input(word_array* tokens) {
   }
   return 0;
 }
+
+void eval_pipes(word_array* tokens, int pipe_loc) {
+  // Break it into multiple inputs.
+  word_array** sides = calloc(2, sizeof(word_array*));
+  sides[0] = calloc(1, sizeof(word_array));
+  if (sides[0] == NULL) {
+    fprintf(stderr, "Couldn't allocate sides[0]\n");
+    exit(-1);
+  }
+  sides[1] = calloc(1, sizeof(word_array));
+  if (sides[0] == NULL) {
+    fprintf(stderr, "Couldn't allocate sides[1]\n");
+    exit(-1);
+  }
+
+  sides[0]->size = pipe_loc;
+  sides[1]->size = tokens->size - pipe_loc;
+  
+  sides[0]->items = calloc(sides[0]->size, sizeof(char*));
+  if (sides[0]->items == NULL) {
+    fprintf(stderr, "Couldn't allocate sides[0]->items\n");
+    exit(-1);
+  }
+  for (int i=0; i < sides[0]->size; i++) {
+    sides[0]->items[i] = tokens->items[i];
+  }
+  
+  sides[1]->items = calloc(sides[1]->size + 1, sizeof(char*));
+  if (sides[1]->items == NULL) {
+    fprintf(stderr, "Couldn't allocate sides[1]->items\n");
+    exit(-1);
+  }
+  for (int i=0; i < sides[1]->size; i++) {
+    sides[1]->items[i] = tokens->items[i + pipe_loc + 1];
+  }
+  
+  // Plumb the pipes
+  int the_pipe[2];
+  pipe(the_pipe);
+  
+  // Evaluate
+  // TODO
+  
+  evaluate_input(sides[0]);
+
+  evaluate_input(sides[1]);
+}
+
+void eval_seq(word_array* tokens, int seq_loc) {
+  // Break it into multiple inputs.
+  word_array** sides = calloc(2, sizeof(word_array*));
+  sides[0] = calloc(1, sizeof(word_array));
+  if (sides[0] == NULL) {
+    fprintf(stderr, "Couldn't allocate sides[0]\n");
+    exit(-1);
+  }
+  sides[1] = calloc(1, sizeof(word_array));
+  if (sides[1] == NULL) {
+    fprintf(stderr, "Couldn't allocate sides[1]\n");
+    exit(-1);
+  }
+
+  sides[0]->size = seq_loc;
+  sides[1]->size = tokens->size - seq_loc;
+
+  sides[0]->items = calloc(sides[0]->size, sizeof(char*));
+  if (sides[0]->items == NULL) {
+    fprintf(stderr, "Couldn't allocate sides[0]->items\n");
+    exit(-1);
+  }
+  for (int i=0; i < sides[0]->size; i++) {
+    sides[0]->items[i] = tokens->items[i];
+  }
+
+  sides[1]->items = calloc(sides[1]->size + 1, sizeof(char*));
+  if (sides[1]->items == NULL) {
+    fprintf(stderr, "Couldn't allocate sides[1]->items\n");
+    exit(-1);
+  }
+  for (int i=0; i < sides[1]->size; i++) {
+    sides[1]->items[i] = tokens->items[i + seq_loc + 1];
+  }
+  // Evaluate
+  evaluate_input(sides[0]);
+  evaluate_input(sides[1]);
+}
+
 
 /* main
  * ----
