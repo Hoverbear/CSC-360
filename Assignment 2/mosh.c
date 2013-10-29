@@ -18,6 +18,7 @@
 #define OBSCURE_CHARACTER '|'
 #define PIPE_OPERATOR "::>"
 #define SEQ_OPERATOR "++"
+#define TOBACK "toback"
 #define STDIN 0
 #define STDOUT 1
 
@@ -133,6 +134,7 @@ int evaluate_input(word_array* tokens) {
   // Is there a pipe?
   int pipe_loc = find_pipes(tokens);
   int seq_loc = find_seq(tokens);
+  
   if (pipe_loc != -1) {
     // We have a pipe.
     
@@ -159,6 +161,7 @@ int evaluate_input(word_array* tokens) {
     pipe(the_pipe);
     
     // Evaluate
+    // TODO
     evaluate_input(sides[0]);
 
     evaluate_input(sides[1]);
@@ -188,6 +191,7 @@ int evaluate_input(word_array* tokens) {
     evaluate_input(sides[0]);
     evaluate_input(sides[1]);
   } else {
+    // Detect `cd`
     if (strncmp(tokens->items[0], "cd", 3) == 0) {
       // Detect cd
       struct stat s;
@@ -203,7 +207,19 @@ int evaluate_input(word_array* tokens) {
           fprintf(stdout, "That is not a directory.\n");
         }
       }
+    } else if () {
+      // Detect `cmdall`
+      // TODO
+      
+    } else if () {
+      // Detect `cmdkill`
+      // TODO
     } else {
+      if (strncmp(tokens->items[0], TOBACK)) {
+        // Detect `toback`
+        // TODO
+      } 
+      
       // Process command.
       fprintf(stderr, "Processing command\n");
       short process;
