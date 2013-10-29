@@ -189,17 +189,33 @@ int evaluate_input(word_array* tokens) {
     // Break it into multiple inputs.
     word_array** sides = calloc(2, sizeof(word_array*));
     sides[0] = calloc(1, sizeof(word_array));
+    if (sides[0] == NULL) {
+      fprintf(stderr, "Couldn't allocate sides[0]\n");
+      exit(-1);
+    }
     sides[1] = calloc(1, sizeof(word_array));
+    if (sides[1] == NULL) {
+      fprintf(stderr, "Couldn't allocate sides[1]\n");
+      exit(-1);
+    }
 
     sides[0]->size = seq_loc;
     sides[1]->size = tokens->size - seq_loc;
     
     sides[0]->items = calloc(sides[0]->size, sizeof(char*));
+    if (sides[0]->items == NULL) {
+      fprintf(stderr, "Couldn't allocate sides[0]->items\n");
+      exit(-1);
+    }
     for (int i=0; i < sides[0]->size; i++) {
       sides[0]->items[i] = tokens->items[i];
     }
     
     sides[1]->items = calloc(sides[1]->size + 1, sizeof(char*));
+    if (sides[1]->items == NULL) {
+      fprintf(stderr, "Couldn't allocate sides[1]->items\n");
+      exit(-1);
+    }
     for (int i=0; i < sides[1]->size; i++) {
       sides[1]->items[i] = tokens->items[i + seq_loc + 1];
     }
@@ -245,6 +261,10 @@ int evaluate_input(word_array* tokens) {
         // Add the null at the end.
         tokens->size += 1;
         tokens->items = realloc(tokens->items, tokens->size * sizeof(char*));
+        if (tokens->items == NULL) {
+          fprintf(stderr, "Couldn't reallocate tokens->items\n");
+          exit(-1);
+        }
         tokens->items[tokens->size] = 0;
     
         //
