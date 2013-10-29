@@ -141,17 +141,33 @@ int evaluate_input(word_array* tokens) {
     // Break it into multiple inputs.
     word_array** sides = calloc(2, sizeof(word_array*));
     sides[0] = calloc(1, sizeof(word_array));
+    if (sides[0] == NULL) {
+      fprintf(stderr, "Couldn't allocate sides[0]\n");
+      exit(-1);
+    }
     sides[1] = calloc(1, sizeof(word_array));
+    if (sides[0] == NULL) {
+      fprintf(stderr, "Couldn't allocate sides[1]\n");
+      exit(-1);
+    }
 
     sides[0]->size = pipe_loc;
     sides[1]->size = tokens->size - pipe_loc;
     
     sides[0]->items = calloc(sides[0]->size, sizeof(char*));
+    if (sides[0]->items == NULL) {
+      fprintf(stderr, "Couldn't allocate sides[0]->items\n");
+      exit(-1);
+    }
     for (int i=0; i < sides[0]->size; i++) {
       sides[0]->items[i] = tokens->items[i];
     }
     
     sides[1]->items = calloc(sides[1]->size + 1, sizeof(char*));
+    if (sides[1]->items == NULL) {
+      fprintf(stderr, "Couldn't allocate sides[1]->items\n");
+      exit(-1);
+    }
     for (int i=0; i < sides[1]->size; i++) {
       sides[1]->items[i] = tokens->items[i + pipe_loc + 1];
     }
@@ -207,15 +223,15 @@ int evaluate_input(word_array* tokens) {
           fprintf(stdout, "That is not a directory.\n");
         }
       }
-    } else if () {
+    } else if (0) {
       // Detect `cmdall`
       // TODO
       
-    } else if () {
+    } else if (0) {
       // Detect `cmdkill`
       // TODO
     } else {
-      if (strncmp(tokens->items[0], TOBACK)) {
+      if (strncmp(tokens->items[0], TOBACK, 6) == 0) {
         // Detect `toback`
         // TODO
       } 
