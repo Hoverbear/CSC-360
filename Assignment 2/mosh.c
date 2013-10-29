@@ -134,6 +134,8 @@ void eval_seq(word_array* tokens, int seq_loc);
  * Evaluates a command
  */
 int evaluate_input(word_array* tokens) {
+  fprintf(stderr, "tokens[0] is %s\n", tokens->items[0]);
+    fprintf(stderr, "tokens size is %d\n", tokens->size);
   //
   // Is there a pipe?
   int pipe_loc = find_pipes(tokens);
@@ -179,6 +181,7 @@ int evaluate_input(word_array* tokens) {
       fprintf(stderr, "Processing command\n");
       short process;
       if ((process = fork()) == 0) {
+          fprintf(stderr, "Chi;d is ok\n");
         // Child process, runs the command.
     
         // Add the null at the end.
@@ -212,9 +215,11 @@ int evaluate_input(word_array* tokens) {
         fprintf(stdout,"404: Command not found.\n");
         exit(-1);
       } else  {
+        fprintf(stderr, "Parent is ok\n");
         // Back in the parent process.
         int returnCode;
         while (process != wait(&returnCode)) { };
+        fprintf(stderr, "--- Done processing a command ---\n");
       }
     }
   }
@@ -261,11 +266,20 @@ void eval_pipes(word_array* tokens, int pipe_loc) {
   pipe(the_pipe);
   
   // Evaluate
-  // TODO
+  int the_stdout = dup(1);
+  int the_stdin = dup(0);
   
+  // TODO
+  dup2(the_pipe[1], 1);
   evaluate_input(sides[0]);
-
+  close(the_pipe[1]);
+  dup2(the_stdout, 1);
+  
+  dup2(the_pipe[0], 0);
   evaluate_input(sides[1]);
+  close(the_pipe[0]);
+  dup2(the_stdin, 0);
+  fprintf(stderr, "------- Done with pipes ------\n");
 }
 
 void eval_seq(word_array* tokens, int seq_loc) {
@@ -327,6 +341,7 @@ int main(int argc, char *argv[]) {
     char* input = calloc(1, sizeof(char*));
 
     input = readline(prompt);
+    fprintf(stderr, "GOT A READLINE\n");
     if (!input) {
       // No input.
       break;
