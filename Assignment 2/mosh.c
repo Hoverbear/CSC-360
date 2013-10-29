@@ -11,11 +11,13 @@
 #include <sys/wait.h>           // Wait
 #include <readline/readline.h>  // Readline
 #include <readline/history.h>   // Readline History
+#include <sys/stat.h>
 
 #define MAX_COMMAND_LENGTH 2048
 #define MAX_PS1_LENGTH 255
 #define OBSCURE_CHARACTER '|'
 #define PIPE_OPERATOR "::>"
+#define SEQ_OPERATOR "++"
 #define STDIN 0
 #define STDOUT 1
 
@@ -113,6 +115,15 @@ int find_pipes(word_array* tokens) {
   return -1;
 }
 
+int find_seq(word_array* tokens) {
+  for (int i = 0; i <= tokens->size; i++) {
+    if (strncmp(tokens->items[i], SEQ_OPERATOR, 4) == 0) {
+      return i;
+    }
+  }
+  return -1;
+}
+
 /* evaluate_command
  * -----------
  * Evaluates a command
@@ -128,6 +139,8 @@ int evaluate_input(word_array* tokens) {
     tokens->items = realloc(tokens->items, tokens->size * sizeof(char*));
     tokens->items[tokens->size] = 0;
     
+    
+    //
     char* command_buffer;
     for (int index = paths->size; index > 0; index--) {
       // Need to parse the first command and test for paths.
@@ -140,7 +153,7 @@ int evaluate_input(word_array* tokens) {
       strcat(command_buffer, paths->items[index]);
       strcat(command_buffer, "/");
       strcat(command_buffer, tokens->items[0]);  
-        
+      
       // Run
       execv(command_buffer, tokens->items);
       free(command_buffer);
@@ -188,6 +201,7 @@ int main(int argc, char *argv[]) {
     
     // Is there a pipe?
     int pipe_loc = find_pipes(tokens);
+    int seq_loc = find_seq(tokens);
     if (pipe_loc != -1) {
       // We have a pipe.
       
@@ -214,13 +228,62 @@ int main(int argc, char *argv[]) {
       pipe(the_pipe);
       
       // Evaluate
+      close(1);
+      dup(the_pipe[0]);
       evaluate_input(sides[0]);
+      close(0);
+      dup(the_pipe[1]);
       evaluate_input(sides[1]);
       
+    } else if (seq_loc != -1){
+      // We have a Seq.
+      
+      // Break it into multiple inputs.
+      word_array** sides = calloc(2, sizeof(word_array*));
+      sides[0] = calloc(1, sizeof(word_array));
+      sides[1] = calloc(1, sizeof(word_array));
+
+      sides[0]->size = seq_loc;
+      sides[1]->size = tokens->size - seq_loc;
+      
+      sides[0]->items = calloc(sides[0]->size, sizeof(char*));
+      for (int i=0; i < sides[0]->size; i++) {
+        sides[0]->items[i] = tokens->items[i];
+      }
+      
+      sides[1]->items = calloc(sides[1]->size + 1, sizeof(char*));
+      for (int i=0; i < sides[1]->size; i++) {
+        sides[1]->items[i] = tokens->items[i + seq_loc + 1];
+      }
+      
+      // Plumb the pipes
+      int the_pipe[2];
+      pipe(the_pipe);
+      
+      // Evaluate
+      evaluate_input(sides[0]);
+      evaluate_input(sides[1]);
     } else {
-      // No pipes. Just need to evaluate.
-      if (evaluate_input(tokens) == -1) {
-        return -1;
+      if (strncmp(tokens->items[0], "cd", 3) == 0) {
+        // Detect cd
+        struct stat s;
+        int err = stat(tokens->items[1], &s);
+        if (err == -1) {
+          fprintf(stdout, "That directory does not exist.\n");
+        } else {
+          if(S_ISDIR(s.st_mode)) {
+            /* it's a dir */
+            fprintf(stdout, "Changing directory.\n");
+            chdir(tokens->items[1]);
+          } else {
+            fprintf(stdout, "That is not a directory.\n");
+          }
+        }
+      } else {
+        // No pipes. Just need to evaluate.
+        if (evaluate_input(tokens) == -1) {
+          return -1;
+        }
       }
     }
     
