@@ -107,7 +107,7 @@ word_array* tokenize_to_array(char* string, char* token, int breakQuotes) {
 }
 
 int find_pipes(word_array* tokens) {
-  for (int i = 0; i <= tokens->size; i++) {
+  for (int i = 0; i < tokens->size; i++) {
     if (strncmp(tokens->items[i], PIPE_OPERATOR, 4) == 0) {
       return i;
     }
@@ -116,7 +116,7 @@ int find_pipes(word_array* tokens) {
 }
 
 int find_seq(word_array* tokens) {
-  for (int i = 0; i <= tokens->size; i++) {
+  for (int i = 0; i < tokens->size; i++) {
     if (strncmp(tokens->items[i], SEQ_OPERATOR, 4) == 0) {
       return i;
     }
@@ -129,44 +129,120 @@ int find_seq(word_array* tokens) {
  * Evaluates a command
  */
 int evaluate_input(word_array* tokens) {
-  // Process command.
-  short process;
-  if ((process = fork()) == 0) {
-    // Child process, runs the command.
+  //
+  // Is there a pipe?
+  int pipe_loc = find_pipes(tokens);
+  int seq_loc = find_seq(tokens);
+  if (pipe_loc != -1) {
+    // We have a pipe.
     
-    // Add the null at the end.
-    tokens->size += 1;
-    tokens->items = realloc(tokens->items, tokens->size * sizeof(char*));
-    tokens->items[tokens->size] = 0;
+    // Break it into multiple inputs.
+    word_array** sides = calloc(2, sizeof(word_array*));
+    sides[0] = calloc(1, sizeof(word_array));
+    sides[1] = calloc(1, sizeof(word_array));
+
+    sides[0]->size = pipe_loc;
+    sides[1]->size = tokens->size - pipe_loc;
     
-    
-    //
-    char* command_buffer;
-    for (int index = paths->size; index > 0; index--) {
-      // Need to parse the first command and test for paths.
-      command_buffer = calloc(sizeof(paths->items[index]) + sizeof(tokens->items[0]) + 1, sizeof(char));
-      if (command_buffer == NULL) {
-        fprintf(stderr, "Couldn't allocate a command buffer.\n");
-        exit(-1);
-      }
-      // Get the full path.
-      strcat(command_buffer, paths->items[index]);
-      strcat(command_buffer, "/");
-      strcat(command_buffer, tokens->items[0]);  
-      
-      // Run
-      execv(command_buffer, tokens->items);
-      free(command_buffer);
+    sides[0]->items = calloc(sides[0]->size, sizeof(char*));
+    for (int i=0; i < sides[0]->size; i++) {
+      sides[0]->items[i] = tokens->items[i];
     }
-    // There is no command.
-    fprintf(stdout,"404: Command not found.\n");
-    exit(-1);
-  } else  {
-    // Back in the parent process.
-    int returnCode;
-    while (process != wait(&returnCode)) { };
+    
+    sides[1]->items = calloc(sides[1]->size + 1, sizeof(char*));
+    for (int i=0; i < sides[1]->size; i++) {
+      sides[1]->items[i] = tokens->items[i + pipe_loc + 1];
+    }
+    
+    // Plumb the pipes
+    int the_pipe[2];
+    pipe(the_pipe);
+    
+    // Evaluate
+    evaluate_input(sides[0]);
+
+    evaluate_input(sides[1]);
+    
+  } else if (seq_loc != -1){
+    // We have a Seq.
+
+    
+    // Break it into multiple inputs.
+    word_array** sides = calloc(2, sizeof(word_array*));
+    sides[0] = calloc(1, sizeof(word_array));
+    sides[1] = calloc(1, sizeof(word_array));
+
+    sides[0]->size = seq_loc;
+    sides[1]->size = tokens->size - seq_loc;
+    
+    sides[0]->items = calloc(sides[0]->size, sizeof(char*));
+    for (int i=0; i < sides[0]->size; i++) {
+      sides[0]->items[i] = tokens->items[i];
+    }
+    
+    sides[1]->items = calloc(sides[1]->size + 1, sizeof(char*));
+    for (int i=0; i < sides[1]->size; i++) {
+      sides[1]->items[i] = tokens->items[i + seq_loc + 1];
+    }
+    // Evaluate
+    evaluate_input(sides[0]);
+    evaluate_input(sides[1]);
+  } else {
+    if (strncmp(tokens->items[0], "cd", 3) == 0) {
+      // Detect cd
+      struct stat s;
+      int err = stat(tokens->items[1], &s);
+      if (err == -1) {
+        fprintf(stdout, "That directory does not exist.\n");
+      } else {
+        if(S_ISDIR(s.st_mode)) {
+          /* it's a dir */
+          fprintf(stdout, "Changing directory.\n");
+          chdir(tokens->items[1]);
+        } else {
+          fprintf(stdout, "That is not a directory.\n");
+        }
+      }
+    } else {
+      // Process command.
+      fprintf(stderr, "Processing command\n");
+      short process;
+      if ((process = fork()) == 0) {
+        // Child process, runs the command.
+    
+        // Add the null at the end.
+        tokens->size += 1;
+        tokens->items = realloc(tokens->items, tokens->size * sizeof(char*));
+        tokens->items[tokens->size] = 0;
+    
+        //
+        char* command_buffer;
+        for (int index = paths->size; index > 0; index--) {
+          // Need to parse the first command and test for paths.
+          command_buffer = calloc(sizeof(paths->items[index]) + sizeof(tokens->items[0]) + 1, sizeof(char));
+          if (command_buffer == NULL) {
+            fprintf(stderr, "Couldn't allocate a command buffer.\n");
+            exit(-1);
+          }
+          // Get the full path.
+          strcat(command_buffer, paths->items[index]);
+          strcat(command_buffer, "/");
+          strcat(command_buffer, tokens->items[0]);  
+      
+          // Run
+          execv(command_buffer, tokens->items);
+          free(command_buffer);
+        }
+        // There is no command.
+        fprintf(stdout,"404: Command not found.\n");
+        exit(-1);
+      } else  {
+        // Back in the parent process.
+        int returnCode;
+        while (process != wait(&returnCode)) { };
+      }
+    }
   }
-  
   return 0;
 }
 
@@ -199,92 +275,10 @@ int main(int argc, char *argv[]) {
     // Tokenize the input, quote sensitive.
     word_array* tokens = tokenize_to_array(input, " ", 1); 
     
-    // Is there a pipe?
-    int pipe_loc = find_pipes(tokens);
-    int seq_loc = find_seq(tokens);
-    if (pipe_loc != -1) {
-      // We have a pipe.
-      
-      // Break it into multiple inputs.
-      word_array** sides = calloc(2, sizeof(word_array*));
-      sides[0] = calloc(1, sizeof(word_array));
-      sides[1] = calloc(1, sizeof(word_array));
-
-      sides[0]->size = pipe_loc;
-      sides[1]->size = tokens->size - pipe_loc;
-      
-      sides[0]->items = calloc(sides[0]->size, sizeof(char*));
-      for (int i=0; i < sides[0]->size; i++) {
-        sides[0]->items[i] = tokens->items[i];
-      }
-      
-      sides[1]->items = calloc(sides[1]->size + 1, sizeof(char*));
-      for (int i=0; i < sides[1]->size; i++) {
-        sides[1]->items[i] = tokens->items[i + pipe_loc + 1];
-      }
-      
-      // Plumb the pipes
-      int the_pipe[2];
-      pipe(the_pipe);
-      
-      // Evaluate
-      close(1);
-      dup(the_pipe[0]);
-      evaluate_input(sides[0]);
-      close(0);
-      dup(the_pipe[1]);
-      evaluate_input(sides[1]);
-      
-    } else if (seq_loc != -1){
-      // We have a Seq.
-      
-      // Break it into multiple inputs.
-      word_array** sides = calloc(2, sizeof(word_array*));
-      sides[0] = calloc(1, sizeof(word_array));
-      sides[1] = calloc(1, sizeof(word_array));
-
-      sides[0]->size = seq_loc;
-      sides[1]->size = tokens->size - seq_loc;
-      
-      sides[0]->items = calloc(sides[0]->size, sizeof(char*));
-      for (int i=0; i < sides[0]->size; i++) {
-        sides[0]->items[i] = tokens->items[i];
-      }
-      
-      sides[1]->items = calloc(sides[1]->size + 1, sizeof(char*));
-      for (int i=0; i < sides[1]->size; i++) {
-        sides[1]->items[i] = tokens->items[i + seq_loc + 1];
-      }
-      
-      // Plumb the pipes
-      int the_pipe[2];
-      pipe(the_pipe);
-      
-      // Evaluate
-      evaluate_input(sides[0]);
-      evaluate_input(sides[1]);
-    } else {
-      if (strncmp(tokens->items[0], "cd", 3) == 0) {
-        // Detect cd
-        struct stat s;
-        int err = stat(tokens->items[1], &s);
-        if (err == -1) {
-          fprintf(stdout, "That directory does not exist.\n");
-        } else {
-          if(S_ISDIR(s.st_mode)) {
-            /* it's a dir */
-            fprintf(stdout, "Changing directory.\n");
-            chdir(tokens->items[1]);
-          } else {
-            fprintf(stdout, "That is not a directory.\n");
-          }
-        }
-      } else {
-        // No pipes. Just need to evaluate.
-        if (evaluate_input(tokens) == -1) {
-          return -1;
-        }
-      }
+    
+    // No pipes. Just need to evaluate.
+    if (evaluate_input(tokens) == -1) {
+      return -1;
     }
     
     // By now, we're done with the input. Start the process over again.
