@@ -279,15 +279,15 @@ void eval_pipes(word_array* tokens, int pipe_loc) {
   int the_stdin = dup(0);
   
   // TODO
-  dup2(the_pipe[1], 1);
-  evaluate_input(sides[0]);
-  close(the_pipe[1]);
-  dup2(the_stdout, 1);
+  dup2(the_pipe[1], 1);       // The pipe's write channel gets set as STDOUT.
+  evaluate_input(sides[0]);   // Evaluate the first command, stash the STDOUT into the pipe
+  close(the_pipe[1]);         // Close the pipe, signalling EOF
+  dup2(the_stdout, 1);        // Replace STDOUT with what it should be.
   
-  dup2(the_pipe[0], 0);
-  evaluate_input(sides[1]);
-  close(the_pipe[0]);
-  dup2(the_stdin, 0);
+  dup2(the_pipe[0], 0);       // Set the pipe's read channel to the STDIN
+  evaluate_input(sides[1]);   // Evaluate the second command, pulling STDIN from the pipe.
+  close(the_pipe[0]);         // Close the pipe, signalling EOF.
+  dup2(the_stdin, 0);         // Reset the pipes to normal.
   fprintf(stderr, "------- Done with pipes ------\n");
 }
 
