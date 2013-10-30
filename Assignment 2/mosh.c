@@ -244,9 +244,9 @@ int evaluate_input(word_array* tokens) {
               had_room = 1;
               processes[i].pid = process;
               processes[i].command = calloc(MAX_COMMAND_LENGTH, sizeof(char));
-              for (int j=0; j < tokens->size; j++) {
+              for (int j=0; j <= tokens->size; j++) {
                 strcat(processes[i].command, tokens->items[j]);
-                if (j != tokens->size - 1) {
+                if (j != tokens->size) {
                   strcat(processes[i].command, " ");
                 }
               }
@@ -256,15 +256,15 @@ int evaluate_input(word_array* tokens) {
           if (!had_room) {
             size_processes++;
             processes = realloc(processes, size_processes * sizeof(process));
-            processes[size_processes].pid = process;
-            processes[size_processes].command = calloc(MAX_COMMAND_LENGTH, sizeof(char));
-              for (int j=0; j < tokens->size; j++) {
-                strcat(processes[size_processes].command, tokens->items[j]);
-                if (j != tokens->size - 1) {
-                  strcat(processes[size_processes].command, " ");
+            processes[size_processes-1].pid = process;
+            processes[size_processes-1].command = calloc(MAX_COMMAND_LENGTH, sizeof(char));
+              for (int j=0; j <= tokens->size; j++) {
+                strcat(processes[size_processes-1].command, tokens->items[j]);
+                if (j != tokens->size) {
+                  strcat(processes[size_processes-1].command, " ");
                 }
               }
-              processes[size_processes].command = realloc(processes[size_processes].command, strlen(processes[size_processes].command) * sizeof(char));
+              processes[size_processes-1].command = realloc(processes[size_processes-1].command, strlen(processes[size_processes-1].command) * sizeof(char));
           }
         }
       }
@@ -365,6 +365,17 @@ void eval_seq(word_array* tokens, int seq_loc) {
   evaluate_input(sides[1]);
 }
 
+void check_processes(void) {
+  for (int i=0; i< size_processes; i++) {
+    if (processes[i].pid != -1) {
+      if (waitpid(processes[i].pid, NULL, WNOHANG) != 0) {
+        fprintf(stdout, "The following command finished: %s\n", processes[i].command);
+        processes[i].pid = -1;
+        free(processes[i].command);
+      }
+    }
+  }
+}
 
 /* main
  * ----
@@ -382,6 +393,7 @@ int main(int argc, char *argv[]) {
   
   // The REPL
   for (;;) {
+    check_processes();
     // Print the PS1.
     snprintf(prompt, sizeof(prompt), "%s %s > ", getenv("USER"), getcwd(NULL, 1024));
     // Read input.
