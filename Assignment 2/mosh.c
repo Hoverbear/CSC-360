@@ -181,9 +181,11 @@ int evaluate_input(word_array* tokens) {
       // Detect `cmdkill`
       // TODO
     } else {
+      int should_wait = 1;
       if (strncmp(tokens->items[0], TOBACK, 6) == 0) {
         // Detect `toback`
         // TODO
+        should_wait = 0;
       } 
       
       // Process command.
@@ -201,6 +203,10 @@ int evaluate_input(word_array* tokens) {
           exit(-1);
         }
         tokens->items[tokens->size] = 0;
+        if (!should_wait) {
+          tokens->items++;
+          tokens->size--;
+        }
     
         //
         char* command_buffer;
@@ -227,7 +233,9 @@ int evaluate_input(word_array* tokens) {
         fprintf(stderr, "Parent is ok\n");
         // Back in the parent process.
         int returnCode;
-        while (process != wait(&returnCode)) { };
+        if (should_wait) {
+          while (process != wait(&returnCode)) { };
+        }
         fprintf(stderr, "--- Done processing a command ---\n");
       }
     }
