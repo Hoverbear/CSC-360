@@ -76,7 +76,7 @@ word_array* tokenize_to_array(char* string, char* token, int breakQuotes) {
   }
   
   char* item = strtok (copy, token);
-  while (item) {    
+  while (item) {
     if (index + 1 > result_size) {
       result_size += 1;
       result = realloc(result, result_size * sizeof(char*));
@@ -85,7 +85,7 @@ word_array* tokenize_to_array(char* string, char* token, int breakQuotes) {
         exit(-1);
       }
     }
-    result[index] = calloc(strlen(item), sizeof(char));
+    result[index] = calloc(strlen(item) + 1, sizeof(char));
     if (result[index] == NULL) {
       fprintf(stderr, "Couldn't allocate room for result[index].\n");
       exit(-1);
@@ -408,7 +408,6 @@ void check_processes(void) {
  * Please see `./a2.pdf` for a description of the problem for this program.
  */
 int main(int argc, char *argv[]) {
-  
   char prompt[MAX_PS1_LENGTH] = { 0 };
   
   rl_bind_key('\t', rl_complete);
