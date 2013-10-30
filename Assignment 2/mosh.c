@@ -252,7 +252,7 @@ int evaluate_input(word_array* tokens) {
         char* command_buffer;
         for (int index = paths->size; index > 0; index--) {
           // Need to parse the first command and test for paths.
-          command_buffer = calloc(sizeof(paths->items[index]) + sizeof(tokens->items[0]) + 1, sizeof(char));
+          command_buffer = calloc(strlen(paths->items[index]) + strlen(tokens->items[0]) + 1, sizeof(char));
           if (command_buffer == NULL) {
             fprintf(stderr, "Couldn't allocate a command buffer.\n");
             exit(-1);
@@ -260,7 +260,7 @@ int evaluate_input(word_array* tokens) {
           // Get the full path.
           strcat(command_buffer, paths->items[index]);
           strcat(command_buffer, "/");
-          strcat(command_buffer, tokens->items[0]);  
+          strcat(command_buffer, tokens->items[0]);
           // Run if (if it doesn't work, that's ok, loop and try the next!)
           execv(command_buffer, tokens->items);
           free(command_buffer);
@@ -466,4 +466,4 @@ int main(int argc, char *argv[]) {
     free(tokens);
   }
   return 0;
-};
+}
