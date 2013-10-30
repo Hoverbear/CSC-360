@@ -107,22 +107,31 @@ word_array* tokenize_to_array(char* string, char* token, int breakQuotes) {
   return the_struct;
 }
 
+/*
+ *
+ */
 int find_pipes(word_array* tokens) {
+  int pipe = -1;
   for (int i = 0; i < tokens->size; i++) {
     if (strncmp(tokens->items[i], PIPE_OPERATOR, 4) == 0) {
-      return i;
+      fprintf(stderr, "Found a pipe operator at %d\n", i);
+      pipe = i;
+      break;
     }
   }
-  return -1;
+  return pipe;
 }
 
 int find_seq(word_array* tokens) {
+  int seq = -1;
   for (int i = 0; i < tokens->size; i++) {
     if (strncmp(tokens->items[i], SEQ_OPERATOR, 4) == 0) {
-      return i;
+      fprintf(stderr, "Found a seq operator at %d\n", i);
+      seq = i;
+      break;
     }
   }
-  return -1;
+  return seq;
 }
 
 // Implicit Declarations
@@ -239,16 +248,16 @@ void eval_pipes(word_array* tokens, int pipe_loc) {
     fprintf(stderr, "Couldn't allocate sides[1]\n");
     exit(-1);
   }
-
-  sides[0]->size = pipe_loc;
-  sides[1]->size = tokens->size - pipe_loc;
+  fprintf(stderr, "size[0] %d.... size[1] %d\n", pipe_loc -1, tokens->size - pipe_loc - 1);
+  sides[0]->size = pipe_loc - 1;
+  sides[1]->size = tokens->size - pipe_loc - 1;
   
   sides[0]->items = calloc(sides[0]->size, sizeof(char*));
   if (sides[0]->items == NULL) {
     fprintf(stderr, "Couldn't allocate sides[0]->items\n");
     exit(-1);
   }
-  for (int i=0; i < sides[0]->size; i++) {
+  for (int i=0; i <= sides[0]->size; i++) {
     sides[0]->items[i] = tokens->items[i];
   }
   
@@ -257,7 +266,7 @@ void eval_pipes(word_array* tokens, int pipe_loc) {
     fprintf(stderr, "Couldn't allocate sides[1]->items\n");
     exit(-1);
   }
-  for (int i=0; i < sides[1]->size; i++) {
+  for (int i=0; i <= sides[1]->size; i++) {
     sides[1]->items[i] = tokens->items[i + pipe_loc + 1];
   }
   
@@ -295,16 +304,16 @@ void eval_seq(word_array* tokens, int seq_loc) {
     fprintf(stderr, "Couldn't allocate sides[1]\n");
     exit(-1);
   }
-
-  sides[0]->size = seq_loc;
-  sides[1]->size = tokens->size - seq_loc;
+  fprintf(stderr, "size[0] %d.... size[1] %d\n", seq_loc -1, tokens->size - seq_loc - 1);
+  sides[0]->size = seq_loc - 1;
+  sides[1]->size = tokens->size - seq_loc - 1;
 
   sides[0]->items = calloc(sides[0]->size, sizeof(char*));
   if (sides[0]->items == NULL) {
     fprintf(stderr, "Couldn't allocate sides[0]->items\n");
     exit(-1);
   }
-  for (int i=0; i < sides[0]->size; i++) {
+  for (int i=0; i <= sides[0]->size; i++) {
     sides[0]->items[i] = tokens->items[i];
   }
 
@@ -313,7 +322,7 @@ void eval_seq(word_array* tokens, int seq_loc) {
     fprintf(stderr, "Couldn't allocate sides[1]->items\n");
     exit(-1);
   }
-  for (int i=0; i < sides[1]->size; i++) {
+  for (int i=0; i <= sides[1]->size; i++) {
     sides[1]->items[i] = tokens->items[i + seq_loc + 1];
   }
   // Evaluate
