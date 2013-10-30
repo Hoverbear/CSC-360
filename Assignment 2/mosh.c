@@ -3,6 +3,7 @@
  */
 
 #include <stdlib.h>             // Standard Lib.
+#include <signal.h>             // Makes kill work.
 #include <stdio.h>              // Standard I/O.
 #include <sys/types.h>          // Defines data types used in system calls. 
 #include <string.h>             // String Functions.
