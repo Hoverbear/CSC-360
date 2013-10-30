@@ -28,6 +28,14 @@ typedef struct word_array {
   char** items;
 } word_array;
 
+typedef struct process {
+  int pid;
+  char* command;
+} process;
+
+process* processes;
+int size_processes;
+
 word_array* paths;
 
 /* tokenize_to_array
@@ -228,6 +236,36 @@ int evaluate_input(word_array* tokens) {
         int returnCode;
         if (should_wait) {
           while (process != wait(&returnCode)) { };
+        } else {
+          // Is there room?
+          int had_room = 0;
+          for (int i=0; i < size_processes; i++) {
+            if (processes[i].pid == -1) {
+              had_room = 1;
+              processes[i].pid = process;
+              processes[i].command = calloc(MAX_COMMAND_LENGTH, sizeof(char));
+              for (int j=0; j < tokens->size; j++) {
+                strcat(processes[i].command, tokens->items[j]);
+                if (j != tokens->size - 1) {
+                  strcat(processes[i].command, " ");
+                }
+              }
+              processes[i].command = realloc(processes[i].command, strlen(processes[i].command) * sizeof(char));
+            }
+          }
+          if (!had_room) {
+            size_processes++;
+            processes = realloc(processes, size_processes * sizeof(process));
+            processes[size_processes].pid = process;
+            processes[size_processes].command = calloc(MAX_COMMAND_LENGTH, sizeof(char));
+              for (int j=0; j < tokens->size; j++) {
+                strcat(processes[size_processes].command, tokens->items[j]);
+                if (j != tokens->size - 1) {
+                  strcat(processes[size_processes].command, " ");
+                }
+              }
+              processes[size_processes].command = realloc(processes[size_processes].command, strlen(processes[size_processes].command) * sizeof(char));
+          }
         }
       }
     }
@@ -248,7 +286,6 @@ void eval_pipes(word_array* tokens, int pipe_loc) {
     fprintf(stderr, "Couldn't allocate sides[1]\n");
     exit(-1);
   }
-  fprintf(stderr, "size[0] %d.... size[1] %d\n", pipe_loc -1, tokens->size - pipe_loc - 1);
   sides[0]->size = pipe_loc - 1;
   sides[1]->size = tokens->size - pipe_loc - 1;
   
@@ -303,7 +340,6 @@ void eval_seq(word_array* tokens, int seq_loc) {
     fprintf(stderr, "Couldn't allocate sides[1]\n");
     exit(-1);
   }
-  fprintf(stderr, "size[0] %d.... size[1] %d\n", seq_loc -1, tokens->size - seq_loc - 1);
   sides[0]->size = seq_loc - 1;
   sides[1]->size = tokens->size - seq_loc - 1;
 
@@ -340,6 +376,9 @@ int main(int argc, char *argv[]) {
   
   rl_bind_key('\t', rl_complete);
   paths = tokenize_to_array(getenv("PATH"), ":", 0);
+  
+  size_processes = 0;                     // No array yet.
+  processes = calloc(size_processes, sizeof(process)); // Init at zero.
   
   // The REPL
   for (;;) {
