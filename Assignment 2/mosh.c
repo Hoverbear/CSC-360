@@ -114,7 +114,6 @@ int find_pipes(word_array* tokens) {
   int pipe = -1;
   for (int i = 0; i < tokens->size; i++) {
     if (strncmp(tokens->items[i], PIPE_OPERATOR, 4) == 0) {
-      fprintf(stderr, "Found a pipe operator at %d\n", i);
       pipe = i;
       break;
     }
@@ -126,7 +125,6 @@ int find_seq(word_array* tokens) {
   int seq = -1;
   for (int i = 0; i < tokens->size; i++) {
     if (strncmp(tokens->items[i], SEQ_OPERATOR, 4) == 0) {
-      fprintf(stderr, "Found a seq operator at %d\n", i);
       seq = i;
       break;
     }
@@ -143,8 +141,6 @@ void eval_seq(word_array* tokens, int seq_loc);
  * Evaluates a command
  */
 int evaluate_input(word_array* tokens) {
-  fprintf(stderr, "tokens[0] is %s\n", tokens->items[0]);
-    fprintf(stderr, "tokens size is %d\n", tokens->size);
   //
   // Is there a pipe?
   int pipe_loc = find_pipes(tokens);
@@ -189,10 +185,8 @@ int evaluate_input(word_array* tokens) {
       } 
       
       // Process command.
-      fprintf(stderr, "Processing command\n");
       short process;
       if ((process = fork()) == 0) {
-          fprintf(stderr, "Chi;d is ok\n");
         // Child process, runs the command.
     
         // Add the null at the end.
@@ -230,13 +224,11 @@ int evaluate_input(word_array* tokens) {
         fprintf(stdout,"404: Command not found.\n");
         exit(-1);
       } else  {
-        fprintf(stderr, "Parent is ok\n");
         // Back in the parent process.
         int returnCode;
         if (should_wait) {
           while (process != wait(&returnCode)) { };
         }
-        fprintf(stderr, "--- Done processing a command ---\n");
       }
     }
   }
@@ -296,7 +288,6 @@ void eval_pipes(word_array* tokens, int pipe_loc) {
   evaluate_input(sides[1]);   // Evaluate the second command, pulling STDIN from the pipe.
   close(the_pipe[0]);         // Close the pipe, signalling EOF.
   dup2(the_stdin, 0);         // Reset the pipes to normal.
-  fprintf(stderr, "------- Done with pipes ------\n");
 }
 
 void eval_seq(word_array* tokens, int seq_loc) {
@@ -358,10 +349,11 @@ int main(int argc, char *argv[]) {
     char* input = calloc(1, sizeof(char*));
 
     input = readline(prompt);
-    fprintf(stderr, "GOT A READLINE\n");
     if (!input) {
       // No input.
       break;
+    } else if (strncmp(input, "", 2) == 0) {
+      continue;
     }
     // At it to history.
     add_history(input);
