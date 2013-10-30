@@ -20,6 +20,7 @@
 #define SEQ_OPERATOR "++"
 #define TOBACK "toback"
 #define CMDALL "cmdall"
+#define CMDKILL "cmdkill"
 #define STDIN 0
 #define STDOUT 1
 
@@ -149,6 +150,20 @@ void list_processes() {
   }
 }
 
+void kill_process(int pid) {
+  int killed_something = 0;
+  for (int i = 0; i < size_processes; i++) {
+    if (processes[i].pid == pid) {
+      killed_something = 1;
+      kill(pid, SIGKILL);
+      fprintf(stderr, "Killed process with pid %d\n", pid);
+    }
+  }
+  if (!killed_something) {
+    fprintf(stdout, "Nothing to kill with pid %d\n", pid);
+  }
+}
+
 // Implicit Declarations
 void eval_pipes(word_array* tokens, int pipe_loc);
 void eval_seq(word_array* tokens, int seq_loc);
@@ -189,9 +204,10 @@ int evaluate_input(word_array* tokens) {
     } else if (strncmp(tokens->items[0], CMDALL, 6) == 0) {
       // Detect `cmdall`
       list_processes();
-    } else if (0) {
+    } else if (strncmp(tokens->items[0], CMDKILL, 6) == 0) {
       // Detect `cmdkill`
-      // TODO
+      int pid = atoi(tokens->items[1]);
+      kill_process(pid);
     } else {
       int should_wait = 1;
       if (strncmp(tokens->items[0], TOBACK, 6) == 0) {
