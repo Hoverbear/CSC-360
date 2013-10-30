@@ -19,6 +19,7 @@
 #define PIPE_OPERATOR "::>"
 #define SEQ_OPERATOR "++"
 #define TOBACK "toback"
+#define CMDALL "cmdall"
 #define STDIN 0
 #define STDOUT 1
 
@@ -140,6 +141,14 @@ int find_seq(word_array* tokens) {
   return seq;
 }
 
+void list_processes() {
+  for (int i = 0; i < size_processes; i++) {
+    if (processes[i].pid != -1) {
+      fprintf(stdout, "pid: %d, command: '%s'\n", processes[i].pid, processes[i].command);
+    }
+  }
+}
+
 // Implicit Declarations
 void eval_pipes(word_array* tokens, int pipe_loc);
 void eval_seq(word_array* tokens, int seq_loc);
@@ -177,10 +186,9 @@ int evaluate_input(word_array* tokens) {
           fprintf(stdout, "That is not a directory.\n");
         }
       }
-    } else if (0) {
+    } else if (strncmp(tokens->items[0], CMDALL, 6) == 0) {
       // Detect `cmdall`
-      // TODO
-      
+      list_processes();
     } else if (0) {
       // Detect `cmdkill`
       // TODO
@@ -188,7 +196,7 @@ int evaluate_input(word_array* tokens) {
       int should_wait = 1;
       if (strncmp(tokens->items[0], TOBACK, 6) == 0) {
         // Detect `toback`
-        // TODO
+        // Most of the work is done in the parent process, later.
         should_wait = 0;
       } 
       
@@ -251,11 +259,12 @@ int evaluate_input(word_array* tokens) {
                 }
               }
               processes[i].command = realloc(processes[i].command, strlen(processes[i].command) * sizeof(char));
+              break;
             }
           }
           if (!had_room) {
             size_processes++;
-            processes = realloc(processes, size_processes * sizeof(process));
+            processes = realloc(processes, size_processes * sizeof(struct process));
             processes[size_processes-1].pid = process;
             processes[size_processes-1].command = calloc(MAX_COMMAND_LENGTH, sizeof(char));
               for (int j=0; j <= tokens->size; j++) {
@@ -389,7 +398,7 @@ int main(int argc, char *argv[]) {
   paths = tokenize_to_array(getenv("PATH"), ":", 0);
   
   size_processes = 0;                     // No array yet.
-  processes = calloc(size_processes, sizeof(process)); // Init at zero.
+  processes = calloc(size_processes, sizeof(struct process)); // Init at zero.
   
   // The REPL
   for (;;) {
