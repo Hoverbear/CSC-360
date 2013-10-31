@@ -171,6 +171,8 @@ void kill_process(int pid) {
       killed_something = 1;
       kill(pid, SIGKILL);
       fprintf(stderr, "Killed process with pid %d\n", pid);
+      processes[i].pid = -1;
+      free(processes[i].command);
     }
   }
   if (!killed_something) {
@@ -443,7 +445,9 @@ int main(int argc, char *argv[]) {
   for (;;) {
     check_processes();
     // Print the PS1.
-    snprintf(prompt, sizeof(prompt), "%s %s > ", getenv("USER"), getcwd(NULL, 1024));
+    char* hostname = calloc(MAX_COMMAND_LENGTH, sizeof(char));
+    gethostname(hostname, MAX_COMMAND_LENGTH);
+    snprintf(prompt, sizeof(prompt), "%s %s > ", hostname, getcwd(NULL, 1024));
     // Read input.
     char* input = calloc(1, sizeof(char*));
     input = readline(prompt);
