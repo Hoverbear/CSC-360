@@ -418,10 +418,16 @@ void eval_seq(word_array* tokens, int seq_loc) {
  * Prints output if any process in the list has finished (finally!)
  */
 void check_processes(void) {
+  time_t rawtime;
+  struct tm* timeinfo;
+  time(&rawtime);
+  timeinfo = localtime(&rawtime);
+  timeinfo = localtime(&rawtime);
+
   for (int i=0; i< size_processes; i++) {
     if (processes[i].pid != -1) {
       if (waitpid(processes[i].pid, NULL, WNOHANG) != 0) { // Doesn't block.
-        fprintf(stdout, "The following command finished: %s\n", processes[i].command);
+        fprintf(stdout, "%s :: Command (pid %d) finished: %s\n", asctime(timeinfo), processes[i].pid, processes[i].command);
         processes[i].pid = -1;
         free(processes[i].command);
       }
