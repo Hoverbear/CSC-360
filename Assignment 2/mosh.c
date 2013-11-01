@@ -241,7 +241,7 @@ int evaluate_input(word_array* tokens) {
         // Child process, runs the command.
         // Add the null at the end.
         tokens->size += 1;
-        tokens->items = realloc(tokens->items, tokens->size * sizeof(char*));
+        tokens->items = realloc(tokens->items, (tokens->size+1) * sizeof(char*)); // For 0 index.
         if (tokens->items == NULL) {
           fprintf(stderr, "Couldn't reallocate tokens->items\n");
           exit(-1);
@@ -257,7 +257,7 @@ int evaluate_input(word_array* tokens) {
         char* command_buffer;
         for (int index = paths->size; index > 0; index--) {
           // Need to parse the first command and test for paths.
-          command_buffer = calloc(strlen(paths->items[index]) + strlen(tokens->items[0]) + 1, sizeof(char));
+          command_buffer = calloc(strlen(paths->items[index]) + strlen(tokens->items[0]) + 2, sizeof(char)); // Zero index and null
           if (command_buffer == NULL) {
             fprintf(stderr, "Couldn't allocate a command buffer.\n");
             exit(-1);
@@ -296,7 +296,7 @@ int evaluate_input(word_array* tokens) {
                   strcat(processes[i].command, " ");
                 }
               }
-              processes[i].command = realloc(processes[i].command, strlen(processes[i].command) * sizeof(char));
+              processes[i].command = realloc(processes[i].command, (strlen(processes[i].command) + 1) * sizeof(char));
               break;
             }
           }
