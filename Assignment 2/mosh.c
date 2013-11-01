@@ -127,7 +127,6 @@ int find_pipes(word_array* tokens) {
   for (int i = 0; i < tokens->size; i++) {
     if (strncmp(tokens->items[i], PIPE_OPERATOR, 4) == 0) {
       pipe = i;
-      fprintf(stderr, "Found a pipe at %d\n", i);
       break;
     }
   }
@@ -143,7 +142,6 @@ int find_seq(word_array* tokens) {
   for (int i = 0; i < tokens->size; i++) {
     if (strncmp(tokens->items[i], SEQ_OPERATOR, 4) == 0) {
       seq = i;
-      fprintf(stderr, "Found a seq at %d\n", i);
       break;
     }
   }
@@ -191,7 +189,6 @@ void eval_seq(word_array* tokens, int seq_loc);
  * Evaluates a command
  */
 int evaluate_input(word_array* tokens) {
-  fprintf(stderr, "Evalutating an input %s\n", tokens->items[0]);
   //
   // Is there a pipe?
   int pipe_loc = find_pipes(tokens);
@@ -326,7 +323,6 @@ int evaluate_input(word_array* tokens) {
 }
 
 void eval_pipes(word_array* tokens, int pipe_loc) {
-  fprintf(stderr, "Evaluating a pipe %s\n", tokens->items[0]);
   // Break it into multiple inputs. Each entry is one side of the pipe.
   word_array** sides = calloc(2, sizeof(word_array*));
   sides[0] = calloc(1, sizeof(struct word_array));
@@ -471,9 +467,6 @@ int main(int argc, char *argv[]) {
     add_history(input);
     // Tokenize the input, quote sensitive.
     word_array* tokens = tokenize_to_array(input, " ", 1);
-    for (int i=0; i <= tokens->size; i++) {
-      fprintf(stderr, "  Tokenized: %s\n", tokens->items[i]);
-    }
     // No pipes. Just need to evaluate.
     if (evaluate_input(tokens) == -1) {
       return -1;
