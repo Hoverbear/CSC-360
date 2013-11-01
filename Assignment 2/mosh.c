@@ -381,12 +381,12 @@ void eval_pipes(word_array* tokens, int pipe_loc) {
 void eval_seq(word_array* tokens, int seq_loc) {
   // Break it into multiple inputs.
   word_array** sides = calloc(2, sizeof(word_array*));
-  sides[0] = calloc(1, sizeof(word_array));
+  sides[0] = calloc(1, sizeof(struct word_array));
   if (sides[0] == NULL) {
     fprintf(stderr, "Couldn't allocate sides[0]\n");
     exit(-1);
   }
-  sides[1] = calloc(1, sizeof(word_array));
+  sides[1] = calloc(1, sizeof(struct word_array));
   if (sides[1] == NULL) {
     fprintf(stderr, "Couldn't allocate sides[1]\n");
     exit(-1);
@@ -395,7 +395,7 @@ void eval_seq(word_array* tokens, int seq_loc) {
   sides[0]->size = seq_loc - 1;
   sides[1]->size = tokens->size - seq_loc - 1;
   // Populate first side.
-  sides[0]->items = calloc(sides[0]->size, sizeof(char*));
+  sides[0]->items = calloc(sides[0]->size + 1, sizeof(char*));
   if (sides[0]->items == NULL) {
     fprintf(stderr, "Couldn't allocate sides[0]->items\n");
     exit(-1);
