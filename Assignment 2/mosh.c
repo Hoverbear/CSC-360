@@ -329,12 +329,12 @@ void eval_pipes(word_array* tokens, int pipe_loc) {
   fprintf(stderr, "Evaluating a pipe %s\n", tokens->items[0]);
   // Break it into multiple inputs. Each entry is one side of the pipe.
   word_array** sides = calloc(2, sizeof(word_array*));
-  sides[0] = calloc(1, sizeof(word_array));
+  sides[0] = calloc(1, sizeof(struct word_array));
   if (sides[0] == NULL) {
     fprintf(stderr, "Couldn't allocate sides[0]\n");
     exit(-1);
   }
-  sides[1] = calloc(1, sizeof(word_array));
+  sides[1] = calloc(1, sizeof(struct word_array));
   if (sides[0] == NULL) {
     fprintf(stderr, "Couldn't allocate sides[1]\n");
     exit(-1);
@@ -343,7 +343,7 @@ void eval_pipes(word_array* tokens, int pipe_loc) {
   sides[0]->size = pipe_loc - 1;
   sides[1]->size = tokens->size - pipe_loc - 1;
   // Populate the first side.
-  sides[0]->items = calloc(sides[0]->size, sizeof(char*));
+  sides[0]->items = calloc(sides[0]->size + 1, sizeof(char*));
   if (sides[0]->items == NULL) {
     fprintf(stderr, "Couldn't allocate sides[0]->items\n");
     exit(-1);
