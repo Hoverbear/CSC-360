@@ -50,14 +50,14 @@ word_array* paths;
 word_array* tokenize_to_array(char* string, char* token, int breakQuotes) {
   // Setup
   int index = 0;
-  int result_size = 1;
-  char** result = calloc(index + 1, sizeof(char*));
+  int result_size = 0;
+  char** result = calloc(result_size, sizeof(char*));
   if (result == NULL) {
     fprintf(stderr, "Couldn't allocate room for result.\n");
     exit(-1);
   }
   // Strtok mangles, make a copy.
-  char* copy = calloc(strlen(string), sizeof(char));
+  char* copy = calloc(strlen(string) + 1, sizeof(char)); // +1 for 0 index.
   if (copy == NULL) {
     fprintf(stderr, "Couldn't allocate room for copy.\n");
     exit(-1);
@@ -112,7 +112,7 @@ word_array* tokenize_to_array(char* string, char* token, int breakQuotes) {
   // Clean up.
   free(copy);
   // Prep the struct for return.
-  word_array* the_struct = calloc(1, sizeof(word_array));
+  word_array* the_struct = calloc(1, sizeof(struct word_array));
   the_struct->size = result_size - 1;
   the_struct->items = result;
   return the_struct;
@@ -127,6 +127,7 @@ int find_pipes(word_array* tokens) {
   for (int i = 0; i < tokens->size; i++) {
     if (strncmp(tokens->items[i], PIPE_OPERATOR, 4) == 0) {
       pipe = i;
+      fprintf(stderr, "Found a pipe at %d\n", i);
       break;
     }
   }
@@ -142,6 +143,7 @@ int find_seq(word_array* tokens) {
   for (int i = 0; i < tokens->size; i++) {
     if (strncmp(tokens->items[i], SEQ_OPERATOR, 4) == 0) {
       seq = i;
+      fprintf(stderr, "Found a seq at %d\n", i);
       break;
     }
   }
@@ -189,6 +191,7 @@ void eval_seq(word_array* tokens, int seq_loc);
  * Evaluates a command
  */
 int evaluate_input(word_array* tokens) {
+  fprintf(stderr, "Evalutating an input %s\n", tokens->items[0]);
   //
   // Is there a pipe?
   int pipe_loc = find_pipes(tokens);
@@ -323,6 +326,7 @@ int evaluate_input(word_array* tokens) {
 }
 
 void eval_pipes(word_array* tokens, int pipe_loc) {
+  fprintf(stderr, "Evaluating a pipe %s\n", tokens->items[0]);
   // Break it into multiple inputs. Each entry is one side of the pipe.
   word_array** sides = calloc(2, sizeof(word_array*));
   sides[0] = calloc(1, sizeof(word_array));
@@ -466,7 +470,10 @@ int main(int argc, char *argv[]) {
     // At it to history.
     add_history(input);
     // Tokenize the input, quote sensitive.
-    word_array* tokens = tokenize_to_array(input, " ", 1); 
+    word_array* tokens = tokenize_to_array(input, " ", 1);
+    for (int i=0; i <= tokens->size; i++) {
+      fprintf(stderr, "  Tokenized: %s\n", tokens->items[i]);
+    }
     // No pipes. Just need to evaluate.
     if (evaluate_input(tokens) == -1) {
       return -1;
