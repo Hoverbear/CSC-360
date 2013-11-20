@@ -3,9 +3,9 @@
 #
 
 CC=gcc
-CFLAGS=-c -Wall -g
+CFLAGS=-c -Wall -g -std=gnu99 -pedantic
 
-all: gentasks simsched
+all: clean gentasks simsched
 
 gentasks.o: gentasks.c
 	$(CC) $(CFLAGS) gentasks.c
@@ -21,3 +21,6 @@ simsched: simsched.o
 
 clean:
 	rm -rf *.o gentasks simsched
+
+run: clean gentasks simsched
+	./gentasks 6 453 | ./simsched -q 4 -a FCFS
