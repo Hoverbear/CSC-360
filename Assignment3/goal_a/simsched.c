@@ -30,13 +30,13 @@
  */
 
 typedef struct Task_t {
-    int   arrival_time;
-    float length;
-    int   priority;
+  int   arrival_time;
+  float length;
+  int   priority;
 
-    float finish_time;
-    int   schedulings;
-    float cpu_cycles;
+  float finish_time;
+  int   schedulings;
+  float cpu_cycles;
 } task_t; 
 
 
@@ -63,210 +63,273 @@ task_t *tasks = NULL;
 
 void read_task_data()
 {
-    int max_tasks = 2;
-    int  in_task_num, in_task_arrival, in_task_priority;
-    float in_task_length;
-    
+  int max_tasks = 2;
+  int  in_task_num, in_task_arrival, in_task_priority;
+  float in_task_length;
 
-    assert( tasks == NULL );
 
-    tasks = (task_t *)malloc(sizeof(task_t) * max_tasks);
-    if (tasks == NULL) {
+  assert( tasks == NULL );
+
+  tasks = (task_t *)malloc(sizeof(task_t) * max_tasks);
+  if (tasks == NULL) {
+    fprintf(stderr, "error: malloc failure in read_task_data()\n");
+    exit(1);
+  }
+
+  num_tasks = 0;
+
+  /* Given the format of the input is strictly formatted,
+   * we can used fscanf .
+   */
+  while (!feof(stdin)) {
+    fscanf(stdin, "%d %d %f %d\n", &in_task_num,
+        &in_task_arrival, &in_task_length, &in_task_priority);
+    assert(num_tasks == in_task_num);
+    tasks[num_tasks].arrival_time = in_task_arrival;
+    tasks[num_tasks].length       = in_task_length;
+    tasks[num_tasks].priority     = in_task_priority;
+
+    num_tasks++;
+    if (num_tasks >= max_tasks) {
+      max_tasks *= 2;
+      tasks = (task_t *)realloc(tasks, sizeof(task_t) * max_tasks);
+      if (tasks == NULL) {
         fprintf(stderr, "error: malloc failure in read_task_data()\n");
         exit(1);
+      } 
     }
-   
-    num_tasks = 0;
-
-    /* Given the format of the input is strictly formatted,
-     * we can used fscanf .
-     */
-    while (!feof(stdin)) {
-        fscanf(stdin, "%d %d %f %d\n", &in_task_num,
-            &in_task_arrival, &in_task_length, &in_task_priority);
-        assert(num_tasks == in_task_num);
-        tasks[num_tasks].arrival_time = in_task_arrival;
-        tasks[num_tasks].length       = in_task_length;
-        tasks[num_tasks].priority     = in_task_priority;
-
-        num_tasks++;
-        if (num_tasks >= max_tasks) {
-            max_tasks *= 2;
-            tasks = (task_t *)realloc(tasks, sizeof(task_t) * max_tasks);
-            if (tasks == NULL) {
-                fprintf(stderr, "error: malloc failure in read_task_data()\n");
-                exit(1);
-            } 
-        }
-    }
+  }
 }
 
 
 void init_simulation_data(int algorithm)
 {
-    int i;
+  int i;
 
-    for (i = 0; i < num_tasks; i++) {
-        tasks[i].finish_time = 0.0;
-        tasks[i].schedulings = 0;
-        tasks[i].cpu_cycles = 0.0;
-    }
+  for (i = 0; i < num_tasks; i++) {
+    tasks[i].finish_time = 0.0;
+    tasks[i].schedulings = 0;
+    tasks[i].cpu_cycles = 0.0;
+  }
 }
 
 
 void first_come_first_serve() 
 {
-    int current_task = 0;
-    int current_tick = 0;
+  int current_task = 0;
+  int current_tick = 0;
 
-    for (;;) {
-        current_tick++;
+  for (;;) {
+    current_tick++;
 
-        if (current_task >= num_tasks) {
-            break;
-        }
-
-        /*
-         * Is there even a job here???
-         */
-        if (tasks[current_task].arrival_time > current_tick-1) {
-            continue;
-        }
-
-        tasks[current_task].cpu_cycles += 1.0;
-        
-        if (tasks[current_task].cpu_cycles >= tasks[current_task].length) {
-            float quantum_fragment = tasks[current_task].cpu_cycles -
-                tasks[current_task].length;
-            tasks[current_task].cpu_cycles = tasks[current_task].length;
-            tasks[current_task].finish_time = current_tick - quantum_fragment;
-            tasks[current_task].schedulings = 1;
-            current_task++;
-            if (current_task > num_tasks) {
-                break;
-            }
-            tasks[current_task].cpu_cycles += quantum_fragment;
-        }
+    if (current_task >= num_tasks) {
+      break;
     }
+
+    /*
+     * Is there even a job here???
+     */
+    if (tasks[current_task].arrival_time > current_tick-1) {
+      continue;
+    }
+
+    tasks[current_task].cpu_cycles += 1.0;
+
+    if (tasks[current_task].cpu_cycles >= tasks[current_task].length) {
+      float quantum_fragment = tasks[current_task].cpu_cycles -
+        tasks[current_task].length;
+      tasks[current_task].cpu_cycles = tasks[current_task].length;
+      tasks[current_task].finish_time = current_tick - quantum_fragment;
+      tasks[current_task].schedulings = 1;
+      current_task++;
+      if (current_task > num_tasks) {
+        break;
+      }
+      tasks[current_task].cpu_cycles += quantum_fragment;
+    }
+  }
 }
 
 
 void stride_scheduling(int quantum)
 {
-    printf("STRIDE SCHEDULING appears here\n");
-    exit(1);
+  printf("STRIDE SCHEDULING appears here\n");
+  exit(1);
 }
-
-
 
 void priority_scheduling()
 {
-    printf("PRIORITY SCHEDULING appears here\n");
-    exit(1);
+  int current_task = 0;
+  int current_tick = 0;
+  int done_tasks = 0;
+  for (;;) {
+    current_tick++;
+    fprintf(stderr, "Processing tick %d\n", current_tick);
+    if (done_tasks >= num_tasks) {
+      break;
+    }
+
+    // --- //
+    // While we haven't consumed the entire tick.
+    //   Get the highest priority task that's arrived and not done.
+    //   If it's not the same one as before, increment the number of times it scheduled.
+    //   Consume up to the rest of the tick. Leave any leftovers.
+    //   If done
+    //    Mark your finish time.
+    //    If all done
+    //      Get out.
+    
+
+    // --- //
+    /* 
+     * See if we have a task that's arrived.
+     */
+    if (tasks[current_task].arrival_time > current_tick) {
+      /* If not, find one that has. */
+      for (int i=0; i < num_tasks; i++) {
+        if (tasks[i].arrival_time <= current_tick && tasks[i].arrival_time < tasks[current_task].arrival_time) {
+          current_task = i;
+        }
+      }
+      // If we didn't find anything.
+      if (tasks[current_task].arrival_time > current_tick) {
+        continue;
+      }
+    }
+    fprintf(stderr, "Selected task %d has arrived.\n", current_task);
+    /*
+     * Is there a job of higher priority that's arrived?
+     */
+    for (int i=0; i < num_tasks; i++) {
+      // Priority && Arrived && Not Done
+      fprintf(stderr, "   Checking %d (P%d) against %d (P%d)... Arrives %d/%d, Cycles %4.2f/%4.2f\n", current_task, tasks[current_task].priority, i, tasks[i].priority, tasks[i].arrival_time, current_tick, tasks[i].cpu_cycles, tasks[i].length);
+      int higher_priority = (tasks[current_task].priority > tasks[i].priority);
+      int arrived = (tasks[i].arrival_time <= current_tick);
+      int this_is_done = (tasks[i].cpu_cycles >= tasks[i].length);
+      int cur_is_done = (tasks[current_task].cpu_cycles >= tasks[current_task].length);
+      if ((higher_priority && arrived && !this_is_done) || (cur_is_done && !this_is_done && arrived)) {
+        fprintf(stderr, "     Switching to task %d from %d\n", i, current_task);
+        current_task = i;
+        tasks[current_task].schedulings++;
+        i = 0;
+        // TODO Add to schedule
+        // TODO Why is it -1?
+      }
+    }
+
+    if (tasks[current_task].arrival_time <= current_tick) {
+      tasks[current_task].cpu_cycles += 1.0;
+      fprintf(stderr, "   Task %d is running\n", current_task);
+
+      if (tasks[current_task].cpu_cycles >= tasks[current_task].length) {
+        tasks[current_task].finish_time = current_tick + 1;
+        done_tasks++;
+        fprintf(stderr, "!!! Task %d is done\n", current_task);
+      }
+    }
+  }
 }
-
-
 
 void mlfq_scheduling(int quantum)
 {
-    printf("MLFQ SCHEDULING appears here\n");
-    exit(1);
+  printf("MLFQ SCHEDULING appears here\n");
+  exit(1);
 }
 
 
 void run_simulation(int algorithm, int quantum)
 {
-    switch(algorithm) {
-        case STRIDE:
-            stride_scheduling(quantum);
-            break;
-        case PS:
-            priority_scheduling();
-            break;
-        case MLFQ:
-            mlfq_scheduling(quantum);
-            break;
-        case FCFS:
-        default:
-            first_come_first_serve();
-            break;
-    }
+  switch(algorithm) {
+    case STRIDE:
+      stride_scheduling(quantum);
+      break;
+    case PS:
+      priority_scheduling();
+      break;
+    case MLFQ:
+      mlfq_scheduling(quantum);
+      break;
+    case FCFS:
+    default:
+      first_come_first_serve();
+      break;
+  }
 }
 
 
 void compute_and_print_stats()
 {
-    int tasks_at_level[PRIORITY_LEVELS] = {0,};
-    float response_at_level[PRIORITY_LEVELS] = {0.0, };
-    int scheduling_events = 0;
-    int i;
+  int tasks_at_level[PRIORITY_LEVELS] = {0,};
+  float response_at_level[PRIORITY_LEVELS] = {0.0, };
+  int scheduling_events = 0;
+  int i;
 
-    for (i = 0; i < num_tasks; i++) {
-        tasks_at_level[tasks[i].priority]++;
-        response_at_level[tasks[i].priority] += 
-            tasks[i].finish_time - (tasks[i].arrival_time * 1.0);
-        scheduling_events += tasks[i].schedulings;
+  for (i = 0; i < num_tasks; i++) {
+    tasks_at_level[tasks[i].priority]++;
+    response_at_level[tasks[i].priority] += 
+      tasks[i].finish_time - (tasks[i].arrival_time * 1.0);
+    scheduling_events += tasks[i].schedulings;
 
-        printf("Task %3d: cpu time (%4.1f), response time (%4.1f), waiting (%4.1f), schedulings (%5d)\n",
-            i, tasks[i].length,
-            tasks[i].finish_time - tasks[i].arrival_time,
-            tasks[i].finish_time - tasks[i].arrival_time - tasks[i].cpu_cycles,
-            tasks[i].schedulings);
-            
+    printf("Task %3d: cpu time (%4.1f), response time (%4.1f), waiting (%4.1f), schedulings (%5d)\n",
+        i, tasks[i].length,
+        tasks[i].finish_time - tasks[i].arrival_time,
+        tasks[i].finish_time - tasks[i].arrival_time - tasks[i].cpu_cycles,
+        tasks[i].schedulings);
+
+  }
+
+  printf("\n");
+
+  if (num_tasks > 0) {
+    for (i = 0; i < PRIORITY_LEVELS; i++) {
+      if (tasks_at_level[i] == 0) {
+        response_at_level[i] = 0.0;
+      } else {
+        response_at_level[i] /= tasks_at_level[i];
+      }
+      printf("Priority level %d: average response time (%4.1f)\n",
+          i, response_at_level[i]);
     }
+  }
 
-    printf("\n");
-
-    if (num_tasks > 0) {
-        for (i = 0; i < PRIORITY_LEVELS; i++) {
-            if (tasks_at_level[i] == 0) {
-                response_at_level[i] = 0.0;
-            } else {
-                response_at_level[i] /= tasks_at_level[i];
-            }
-            printf("Priority level %d: average response time (%4.1f)\n",
-                i, response_at_level[i]);
-        }
-    }
-
-    printf ("Total number of scheduling events: %d\n", scheduling_events);
+  printf ("Total number of scheduling events: %d\n", scheduling_events);
 }
 
 
 int main(int argc, char *argv[])
 {
-    int i = 0;
-    int algorithm = FCFS;
-    int quantum = 1;
+  int i = 0;
+  int algorithm = FCFS;
+  int quantum = 1;
 
-    for (i = 1; i < argc; i++) {
-        if (strcmp(argv[i], "-q") == 0) {
-            i++;
-            quantum = atoi(argv[i]);
-        } else if (strcmp(argv[i], "-a") == 0) {
-            i++;
-            if (strcmp(argv[i], "FCFS") == 0) {
-                algorithm = FCFS;
-            } else if (strcmp(argv[i], "PS") == 0) {
-                algorithm = PS;
-            } else if (strcmp(argv[i], "MLFQ") == 0) {
-                algorithm = MLFQ;
-            } else if (strcmp(argv[i], "STRIDE") == 0) {
-                algorithm = STRIDE;
-            }
-        }
+  for (i = 1; i < argc; i++) {
+    if (strcmp(argv[i], "-q") == 0) {
+      i++;
+      quantum = atoi(argv[i]);
+    } else if (strcmp(argv[i], "-a") == 0) {
+      i++;
+      if (strcmp(argv[i], "FCFS") == 0) {
+        algorithm = FCFS;
+      } else if (strcmp(argv[i], "PS") == 0) {
+        algorithm = PS;
+      } else if (strcmp(argv[i], "MLFQ") == 0) {
+        algorithm = MLFQ;
+      } else if (strcmp(argv[i], "STRIDE") == 0) {
+        algorithm = STRIDE;
+      }
     }
-         
-    read_task_data();
+  }
 
-    if (num_tasks == 0) {
-        fprintf(stderr,"%s: no tasks for the simulation\n", argv[0]);
-        exit(1);
-    }
+  read_task_data();
 
-    init_simulation_data(algorithm);
-    run_simulation(algorithm, quantum);
-    compute_and_print_stats();
+  if (num_tasks == 0) {
+    fprintf(stderr,"%s: no tasks for the simulation\n", argv[0]);
+    exit(1);
+  }
 
-    exit(0);
+  init_simulation_data(algorithm);
+  run_simulation(algorithm, quantum);
+  compute_and_print_stats();
+
+  exit(0);
 }
