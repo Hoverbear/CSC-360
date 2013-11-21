@@ -159,8 +159,8 @@ void stride_scheduling(int quantum)
 
 void priority_scheduling()
 {
-  int current_task = 0;
   int current_tick = 0;
+  int last_task = -1;
   int done_tasks = 0;
   for (;;) {
     current_tick++;
@@ -170,63 +170,54 @@ void priority_scheduling()
     }
 
     // --- //
+    float tick_left = 1.0;
     // While we haven't consumed the entire tick.
+    while (tick_left != 0.0) {
     //   Get the highest priority task that's arrived and not done.
-    //   If it's not the same one as before, increment the number of times it scheduled.
-    //   Consume up to the rest of the tick. Leave any leftovers.
-    //   If done
-    //    Mark your finish time.
-    //    If all done
-    //      Get out.
-    
-
-    // --- //
-    /* 
-     * See if we have a task that's arrived.
-     */
-    if (tasks[current_task].arrival_time > current_tick) {
-      /* If not, find one that has. */
+      int target_task = 0;
+      int found = 0;
       for (int i=0; i < num_tasks; i++) {
-        if (tasks[i].arrival_time <= current_tick && tasks[i].arrival_time < tasks[current_task].arrival_time) {
-          current_task = i;
+        int arrived = (tasks[i].arrival_time <= current_tick + 1 - tick_left);
+        int done = (tasks[i].cpu_cycles >= tasks[i].length);
+        int higher_priority = (tasks[i].priority <= tasks[target_task].priority);
+        if (arrived && !done && (higher_priority || !found)) {
+          target_task = i;
+          found = 1;
+          fprintf(stderr, " Setting %d to active task\n", target_task);
         }
       }
-      // If we didn't find anything.
-      if (tasks[current_task].arrival_time > current_tick) {
-        continue;
+      if (!found) { fprintf(stderr, " Found nothing...\n"); continue; }
+      fprintf(stderr, " %d is consuming tick %4.2f is left.\n", target_task, tick_left);
+    //   If it's not the same one as before, increment the number of times it scheduled.
+      if (target_task != last_task) {
+        tasks[target_task].schedulings++;
+        fprintf(stderr, "   Increasing the number of scheddulings for %d\n", target_task);
       }
-    }
-    fprintf(stderr, "Selected task %d has arrived.\n", current_task);
-    /*
-     * Is there a job of higher priority that's arrived?
-     */
-    for (int i=0; i < num_tasks; i++) {
-      // Priority && Arrived && Not Done
-      fprintf(stderr, "   Checking %d (P%d) against %d (P%d)... Arrives %d/%d, Cycles %4.2f/%4.2f\n", current_task, tasks[current_task].priority, i, tasks[i].priority, tasks[i].arrival_time, current_tick, tasks[i].cpu_cycles, tasks[i].length);
-      int higher_priority = (tasks[current_task].priority > tasks[i].priority);
-      int arrived = (tasks[i].arrival_time <= current_tick);
-      int this_is_done = (tasks[i].cpu_cycles >= tasks[i].length);
-      int cur_is_done = (tasks[current_task].cpu_cycles >= tasks[current_task].length);
-      if ((higher_priority && arrived && !this_is_done) || (cur_is_done && !this_is_done && arrived)) {
-        fprintf(stderr, "     Switching to task %d from %d\n", i, current_task);
-        current_task = i;
-        tasks[current_task].schedulings++;
-        i = 0;
-        // TODO Add to schedule
-        // TODO Why is it -1?
+      last_task = target_task;
+      float desired_time = (tasks[target_task].length - tasks[target_task].cpu_cycles);
+    //   Consume up to the rest of the tick. Leave any leftovers.
+      if (desired_time >= 1.0) {
+        tasks[target_task].cpu_cycles += 1.0;
+        tick_left = 0.0;
+      } else {
+        tasks[target_task].cpu_cycles += desired_time;
+        tick_left -= desired_time;
       }
-    }
-
-    if (tasks[current_task].arrival_time <= current_tick) {
-      tasks[current_task].cpu_cycles += 1.0;
-      fprintf(stderr, "   Task %d is running\n", current_task);
-
-      if (tasks[current_task].cpu_cycles >= tasks[current_task].length) {
-        tasks[current_task].finish_time = current_tick + 1;
+    //   If done
+      if (tasks[target_task].cpu_cycles >= tasks[target_task].length) {
+        fprintf(stderr, "   !!Task %d is done at %4.2f\n", target_task, current_tick + 1 - tick_left);
+    //    Mark your finish time.
+        tasks[target_task].finish_time = current_tick + 1.0 - tick_left;
         done_tasks++;
-        fprintf(stderr, "!!! Task %d is done\n", current_task);
+
       }
     }
+    //    If all done
+    //      Get out.
+    if (done_tasks == num_tasks) {
+      break;
+    }
+    // --- //
   }
 }
 
