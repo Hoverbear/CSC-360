@@ -160,11 +160,11 @@ void stride_scheduling(int quantum)
 {
   int done_tasks = 0;
   int current_tick = 1;
-  int total_bribes = 0;
+  float total_bribes = 0;
   // Set up meter times.
   for (int i=0; i < num_tasks; i++) {
-    total_bribes += tasks[i].priority;
-    tasks[i].meter_rate = 1 / tasks[i].priority;
+    total_bribes += 1/(tasks[i].priority+1);
+    tasks[i].meter_rate = tasks[i].priority+1; // For divide by zero.
     tasks[i].metered_time = 0;
   }
   int total_rate = 1 / total_bribes;
@@ -179,27 +179,30 @@ void stride_scheduling(int quantum)
       // Set the target task.
       for (int i = 0; i < num_tasks; i++) {
         // Is is ready?
-        int arrived = (tasks[i].arrival_time <= current_tick - tick_left);
+        int arrived = (tasks[i].arrival_time <= current_tick + quantum - tick_left);
         int done = tasks[i].cpu_cycles >= tasks[i].length;
-        if (!(arrived && !done)) {
-          break; // If not, drop out.
+        fprintf(stderr, "   Task %d is arrived: %d, done %d\n", i, arrived, done);
+        if (!arrived || done) {
+          continue; // If not, drop out.
         }
+        fprintf(stderr, "Got here");
         // If the task just arrived, need to set it's metered time.
-        if (arrived && tasks[i].metered_time == 0 && tasks[i].arrival_time == current_tick) {
+        if (arrived && tasks[i].metered_time == 0 && tasks[i].arrival_time == current_tick + quantum - tick_left) {
           tasks[i].metered_time = total_meter + tasks[i].meter_rate;
           fprintf(stderr, "Task[%d] arrived and got a meter of %4.2f", i, tasks[i].metered_time);
         }
         // If this task has the lowest metered time, set it as active.
         if (target_task == -1 || tasks[target_task].metered_time > tasks[i].metered_time) {
+          fprintf(stderr, "Setting target to %d\n", i);
           target_task = i;
         }
       }
-      fprintf(stderr, " Task is %d\n", target_task);
-      if (target_task == -1) { break; } else if (target_task != last_task) {
+      if (target_task == -1) { tick_left -= 0.1; continue; } else if (target_task != last_task) {
         tasks[target_task].schedulings++;
         last_task = target_task;
         fprintf(stderr, "     This is a new scheduling!");
       }
+      fprintf(stderr, " Task is %d, priority %d\n", target_task, tasks[target_task].priority);
       // Determine how much time it can has. (Up to quantum)
       float desired_time = tasks[target_task].length - tasks[target_task].cpu_cycles;
       if (desired_time > tick_left) {
