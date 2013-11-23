@@ -37,6 +37,9 @@ typedef struct Task_t {
   float finish_time;
   int   schedulings;
   float cpu_cycles;
+  // For STRIDE
+  float meter_rate;
+  float metered_time;
 } task_t; 
 
 
@@ -153,8 +156,75 @@ void first_come_first_serve()
 
 void stride_scheduling(int quantum)
 {
-  printf("STRIDE SCHEDULING appears here\n");
-  exit(1);
+  int done_tasks = 0;
+  int current_tick = 1;
+  int total_bribes = 0;
+  // Set up meter times.
+  for (int i=0; i < num_tasks; i++) {
+    total_bribes += tasks[i].priority;
+    tasks[i].meter_rate = 1 / tasks[i].priority;
+    tasks[i].metered_time = 0;
+  }
+  int total_rate = 1 / total_bribes;
+  int total_meter = total_rate;
+  int last_task = -1;
+  for (;;) {
+    fprintf(stderr, "Processing tick %d\n", current_tick);
+    float tick_left = quantum;
+    // While tick_left > 0.0
+    while (tick_left > 0.0) {
+      int target_task = -1;
+      // Set the target task.
+      for (int i = 0; i < num_tasks; i++) {
+        // Is is ready?
+        int arrived = (tasks[i].arrival_time <= current_tick - tick_left);
+        int done = tasks[i].cpu_cycles >= tasks[i].length;
+        if (!(arrived && !done)) {
+          break; // If not, drop out.
+        }
+        // If the task just arrived, need to set it's metered time.
+        if (arrived && tasks[i].metered_time == 0 && tasks[i].arrival_time == current_tick) {
+          tasks[i].metered_time = total_meter + tasks[i].meter_rate;
+          fprintf(stderr, "Task[%d] arrived and got a meter of %4.2f", i, tasks[i].metered_time);
+        }
+        // If this task has the lowest metered time, set it as active.
+        if (target_task == -1 || tasks[target_task].metered_time > tasks[i].metered_time) {
+          target_task = i;
+        }
+      }
+      fprintf(stderr, " Task is %d\n", target_task);
+      if (target_task == -1) { break; } else if (target_task != last_task) {
+        tasks[target_task].schedulings++;
+        last_task = target_task;
+        fprintf(stderr, "     This is a new scheduling!");
+      }
+      // Determine how much time it can has. (Up to quantum)
+      float desired_time = tasks[target_task].length - tasks[target_task].cpu_cycles;
+      if (desired_time > tick_left) {
+        desired_time = tick_left;
+      }
+      fprintf(stderr, "   Consuming %4.2f, has %4.2f\n", desired_time, tasks[target_task].cpu_cycles);
+      // Increment it's cycles by that amount.
+      tasks[target_task].cpu_cycles += desired_time;
+      // Decrement the tick_left by the amount of time taken.
+      tick_left -= desired_time;
+      // Up it's metered_time by meter_rate.
+      tasks[target_task].metered_time += tasks[target_task].meter_rate;
+      // Is it done?
+      if (tasks[target_task].cpu_cycles >= tasks[target_task].length) {
+        done_tasks++;
+        tasks[target_task].finish_time = current_tick + tick_left;
+      }
+    }
+    // End while
+    
+    //
+    if (done_tasks >= num_tasks) {
+      break;
+    }
+    current_tick += quantum;
+    total_meter += (total_rate * quantum);
+  }
 }
 
 void priority_scheduling()
@@ -168,7 +238,6 @@ void priority_scheduling()
     if (done_tasks >= num_tasks) {
       break;
     }
-
     // --- //
     float tick_left = 1.0;
     // While we haven't consumed the entire tick.
@@ -186,7 +255,7 @@ void priority_scheduling()
           fprintf(stderr, " Setting %d to active task\n", target_task);
         }
       }
-      if (!found) { fprintf(stderr, " Found nothing...\n"); continue; }
+      if (!found) { fprintf(stderr, " Found nothing...\n"); break; }
       fprintf(stderr, " %d is consuming tick %4.2f is left.\n", target_task, tick_left);
     //   If it's not the same one as before, increment the number of times it scheduled.
       if (target_task != last_task) {
