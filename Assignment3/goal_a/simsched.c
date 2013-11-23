@@ -40,6 +40,8 @@ typedef struct Task_t {
   // For STRIDE
   float meter_rate;
   float metered_time;
+  // For RR
+  int position;
 } task_t; 
 
 
@@ -292,10 +294,66 @@ void priority_scheduling()
 
 void rr_scheduling(int quantum)
 {
-  printf("RR SCHEDULING appears here\n");
-  exit(1);
-}
+  int done_tasks = 0;
+  int current_tick = 1;
+  int last_task = -1;
+  for (;;) {
+    fprintf(stderr, "Processing tick %d\n", current_tick);
+    float tick_left = quantum;
+    // While tick_left > 0.0
+    while (tick_left > 0.0) {
+      int target_task = -1;
+      int step = 1;
+      // Set the target task.
+      // With RR, just select the next task in order that's arrived and raring to go.
+      while (step <= num_tasks) {
+        int i = (last_task + step) % num_tasks;
+        // Is is ready?
+        int arrived = (tasks[i].arrival_time <= current_tick - tick_left);
+        int done = tasks[i].cpu_cycles >= tasks[i].length;
+        fprintf(stderr, "   Testing %d/%d, arrived: %d, done: %d\n", i, num_tasks, arrived, done);
+        if (!arrived || done) {
+          fprintf(stderr, "   Incrementing step to %d\n", step+1);
+          step++;
+        } else {
+          fprintf(stderr, "   Selecting %d\n", (last_task + step) % num_tasks);
+          target_task = (last_task + step) % num_tasks;
+          if (target_task != last_task) {
+            fprintf(stderr, "       New schduling!\n");
+            tasks[target_task].schedulings++;
+          }
+          last_task = target_task;
+          break;
+        }
+      }
 
+      fprintf(stderr, " Task is %d\n", target_task);
+      if (target_task == -1) { break; }
+      // Determine how much time it can has. (Up to quantum)
+      float desired_time = tasks[target_task].length - tasks[target_task].cpu_cycles;
+      if (desired_time > tick_left) {
+        desired_time = tick_left;
+      }
+      fprintf(stderr, "   Consuming %4.2f, has %4.2f\n", desired_time, tasks[target_task].cpu_cycles);
+      // Increment it's cycles by that amount.
+      tasks[target_task].cpu_cycles += desired_time;
+      // Decrement the tick_left by the amount of time taken.
+      tick_left -= desired_time;
+      // Is it done?
+      if (tasks[target_task].cpu_cycles >= tasks[target_task].length) {
+        done_tasks++;
+        tasks[target_task].finish_time = current_tick + tick_left;
+      }
+    }
+    // End while
+    
+    //
+    if (done_tasks >= num_tasks) {
+      break;
+    }
+    current_tick += quantum;
+  }
+}
 
 void run_simulation(int algorithm, int quantum)
 {
