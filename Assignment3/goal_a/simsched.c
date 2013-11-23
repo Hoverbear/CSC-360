@@ -15,7 +15,7 @@
 
 #define FCFS 0
 #define PS   1
-#define MLFQ 2
+#define RR 2
 #define STRIDE 3
 
 #define PRIORITY_LEVELS 4
@@ -290,9 +290,9 @@ void priority_scheduling()
   }
 }
 
-void mlfq_scheduling(int quantum)
+void rr_scheduling(int quantum)
 {
-  printf("MLFQ SCHEDULING appears here\n");
+  printf("RR SCHEDULING appears here\n");
   exit(1);
 }
 
@@ -306,8 +306,8 @@ void run_simulation(int algorithm, int quantum)
     case PS:
       priority_scheduling();
       break;
-    case MLFQ:
-      mlfq_scheduling(quantum);
+    case RR:
+      rr_scheduling(quantum);
       break;
     case FCFS:
     default:
@@ -372,8 +372,8 @@ int main(int argc, char *argv[])
         algorithm = FCFS;
       } else if (strcmp(argv[i], "PS") == 0) {
         algorithm = PS;
-      } else if (strcmp(argv[i], "MLFQ") == 0) {
-        algorithm = MLFQ;
+      } else if (strcmp(argv[i], "RR") == 0) {
+        algorithm = RR;
       } else if (strcmp(argv[i], "STRIDE") == 0) {
         algorithm = STRIDE;
       }
