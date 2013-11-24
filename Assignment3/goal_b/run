@@ -1,0 +1,2 @@
+./simvm -‐file=/home/zastre/csc360/a3/goal_b/trace10.out -‐framesize=12 -‐numframes=256 -‐scheme=fifo -‐progress  
+  
