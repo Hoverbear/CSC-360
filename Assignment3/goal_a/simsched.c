@@ -163,12 +163,13 @@ void stride_scheduling(int quantum)
   float total_bribes = 0;
   // Set up meter times.
   for (int i=0; i < num_tasks; i++) {
-    total_bribes += 1/(tasks[i].priority+1);
-    tasks[i].meter_rate = tasks[i].priority+1; // For divide by zero.
+    total_bribes += 11 - tasks[i].priority; // 10 + 1 for Divide by zero.
+    tasks[i].meter_rate = 1 / (11 - tasks[i].priority); // For divide by zero.
     tasks[i].metered_time = 0;
   }
-  int total_rate = 1 / total_bribes;
-  int total_meter = total_rate;
+  float total_rate = 1 / total_bribes;
+  fprintf(stderr, "Bribes: %4.2f, Rate: %4.2f\n", total_bribes, total_rate);
+  float total_meter = total_rate * quantum;
   int last_task = -1;
   for (;;) {
     fprintf(stderr, "Processing tick %d\n", current_tick);
@@ -185,11 +186,10 @@ void stride_scheduling(int quantum)
         if (!arrived || done) {
           continue; // If not, drop out.
         }
-        fprintf(stderr, "Got here");
         // If the task just arrived, need to set it's metered time.
         if (arrived && tasks[i].metered_time == 0 && tasks[i].arrival_time == current_tick + quantum - tick_left) {
           tasks[i].metered_time = total_meter + tasks[i].meter_rate;
-          fprintf(stderr, "Task[%d] arrived and got a meter of %4.2f", i, tasks[i].metered_time);
+          fprintf(stderr, "Task[%d] arrived and got a meter of %4.2f\n", i, tasks[i].metered_time);
         }
         // If this task has the lowest metered time, set it as active.
         if (target_task == -1 || tasks[target_task].metered_time > tasks[i].metered_time) {
@@ -200,7 +200,7 @@ void stride_scheduling(int quantum)
       if (target_task == -1) { tick_left -= 0.1; continue; } else if (target_task != last_task) {
         tasks[target_task].schedulings++;
         last_task = target_task;
-        fprintf(stderr, "     This is a new scheduling!");
+        fprintf(stderr, "     This is a new scheduling\n!");
       }
       fprintf(stderr, " Task is %d, priority %d\n", target_task, tasks[target_task].priority);
       // Determine how much time it can has. (Up to quantum)
@@ -312,7 +312,7 @@ void rr_scheduling(int quantum)
       while (step <= num_tasks) {
         int i = (last_task + step) % num_tasks;
         // Is is ready?
-        int arrived = (tasks[i].arrival_time <= current_tick - tick_left);
+        int arrived = (tasks[i].arrival_time <= current_tick - (quantum - tick_left));
         int done = tasks[i].cpu_cycles >= tasks[i].length;
         fprintf(stderr, "   Testing %d/%d, arrived: %d, done: %d\n", i, num_tasks, arrived, done);
         if (!arrived || done) {
