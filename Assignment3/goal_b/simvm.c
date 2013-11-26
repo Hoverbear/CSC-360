@@ -12,9 +12,8 @@
 #include <unistd.h>
 
 #define SCHEME_NONE 0
-#define SCHEME_CLOCK 1
-#define SCHEME_LRU  2
-#define SCHEME_OPTIMAL 3
+#define SCHEME_FIFO 1
+#define SCHEME_LRU   2
 
 int page_replacement_scheme = SCHEME_NONE;
 
@@ -23,7 +22,7 @@ int page_replacement_scheme = SCHEME_NONE;
 #define PROGRESS_BAR_WIDTH 30
 #define MAX_LINE_LEN 100
 
-int size_of_frame = 0;  /* power of 2 */
+int size_of_frame = 0;   /* power of 2 */
 int size_of_memory = 0; /* number of frames */
 
 int initialize(void);
@@ -33,253 +32,265 @@ long resolve_address(long, int);
 void error_resolve_address(long, int);
 
 int page_faults = 0;
-int mem_refs    = 0;
-int swap_outs   = 0;
-int swap_ins    = 0;
+int mem_refs       = 0;
+int swap_outs    = 0;
+int swap_ins       = 0;
 
 struct page_table_entry *page_table = NULL;
 
 struct page_table_entry {
-	long page_num;
-	int dirty;
-	int free;
+ long page_num;
+ int dirty;
+ int free;
 };
 
 
 
 long resolve_address(long logical, int memwrite)
 {
-	int i;
-	long page, frame;
-	long offset;
-	long mask = 0;
-	long effective;
+ int i;
+ long page, frame;
+ long offset;
+ long mask = 0;
+ long effective;
 
-	/* Get the page and offset */
-	page = (logical >> size_of_frame);
+ /* Get the page and offset */
+ page = (logical >> size_of_frame);
 
-	for (i=0; i<size_of_frame; i++) {
-		mask = mask << 1;
-		mask |= 1;
-	}
-	offset = logical & mask;
+ for (i=0; i<size_of_frame; i++) {
+   mask = mask << 1;
+   mask |= 1;
+ }
+ offset = logical & mask;
 
-	/* Find page in the inverted page table. */
-	frame = -1;
-	for ( i = 0; i < size_of_memory; i++ ) {
-		if (!page_table[i].free && page_table[i].page_num == page) {
-			frame = i;
-			break;
-		}
-	}
+ /* Find page in the inverted page table. */
+ frame = -1;
+ for ( i = 0; i < size_of_memory; i++ ) {
+   if (!page_table[i].free && page_table[i].page_num == page) {
+     frame = i;
+     break;
+   }
+ }
 
-	/* If frame is not -1, then we can successfully resolve the
-	 * address and return the result. */
-	if (frame != -1) {
-		effective = (frame << size_of_frame) | offset;
-		return effective;
-	}
+ /* If frame is not -1, then we can successfully resolve the
+   * address and return the result. */
+ if (frame != -1) {
+   effective = (frame << size_of_frame) | offset;
+   return effective;
+ }
 
 
-	/* If we reach this point, there was a page fault. Find
-	 * a free frame. */
-	page_faults++;
+ /* If we reach this point, there was a page fault. Find
+   * a free frame. */
+ page_faults++;
 
-	for ( i = 0; i < size_of_memory; i++) {
-		if (page_table[i].free) {
-			frame = i;
-			break;
-		}
-	}
+ for ( i = 0; i < size_of_memory; i++) {
+   if (page_table[i].free) {
+     frame = i;
+     break;
+   }
+ }
 
-	/* If we found a free frame, then patch up the
-	 * page table entry and compute the effective
-	 * address. Otherwise return -1.
-	 */
-	if (frame != -1) {
-		page_table[frame].page_num = page;
-		page_table[i].free = FALSE;
-		swap_ins++;
-		effective = (frame << size_of_frame) | offset;
-		return effective;
-	} else {
-		return -1;
-	}
+ /* If we found a free frame, then patch up the
+   * page table entry and compute the effective
+   * address. Otherwise return -1.
+   */
+ if (frame != -1) {
+   page_table[frame].page_num = page;
+   page_table[i].free = FALSE;
+   swap_ins++;
+   effective = (frame << size_of_frame) | offset;
+   return effective;
+ } else {
+    // ---------------Begin Edit---------------- //
+    /* There are no free frames. Need to decide what to do based on
+     * our replacement scheme.
+     */
+   switch (page_replacement_scheme) {
+     case SCHEME_FIFO:
+        fprintf(stderr, "I should replace with FIFO\n");
+        return -1;
+      case SCHEME_LRU:
+        fprintf(stderr, "I should replace with LRU\n");
+        return -1;
+      default:
+        return -1;
+   }
+    // ---------------End Edit---------------- //
+ }
 }
 
 
 
 void display_progress(int percent)
 {
-	int to_date = PROGRESS_BAR_WIDTH * percent / 100;
-	static int last_to_date = 0;
-	int i;
+ int to_date = PROGRESS_BAR_WIDTH * percent / 100;
+ static int last_to_date = 0;
+ int i;
 
-	if (last_to_date < to_date) {
-		last_to_date = to_date;
-	} else {
-		return;
-	}
+ if (last_to_date < to_date) {
+   last_to_date = to_date;
+ } else {
+   return;
+ }
 
-	printf("Progress [");
-	for (i=0; i<to_date; i++) {
-		printf(".");
-	}
-	for (; i<PROGRESS_BAR_WIDTH; i++) {
-		printf(" ");
-	}
-	printf("] %3d%%", percent);
-	printf("\r");
-	fflush(stdout);
+ printf("Progress [");
+ for (i=0; i<to_date; i++) {
+   printf(".");
+ }
+ for (; i<PROGRESS_BAR_WIDTH; i++) {
+   printf(" ");
+ }
+ printf("] %3d%%", percent);
+ printf("\r");
+ fflush(stdout);
 }
 
 
 int initialize()
 {
-	int i;
+ int i;
 
-	page_table = (struct page_table_entry *)malloc(sizeof(struct page_table_entry) * 
-		size_of_memory);
+ page_table = (struct page_table_entry *)malloc(sizeof(struct page_table_entry) * 
+   size_of_memory);
 
-	if (page_table == NULL) {
-		fprintf(stderr, "Simulator error: cannot allocate memory for page table.\n");
-		exit(1);
-	}
+ if (page_table == NULL) {
+   fprintf(stderr, "Simulator error: cannot allocate memory for page table.\n");
+   exit(1);
+ }
 
-	for (i=0; i<size_of_memory; i++) {
-		page_table[i].free = TRUE;
-	}
+ for (i=0; i<size_of_memory; i++) {
+   page_table[i].free = TRUE;
+ }
 
-    return -1;
+       return -1;
 }
 
 
 int finalize()
 {
 
-    return -1;
+       return -1;
 }
 
 
 void error_resolve_address(long a, int l)
 {
-	fprintf(stderr, "\n");
-	fprintf(stderr, "Simulator error: cannot resolve address 0x%lx at line %d\n",
-		a, l);
-	exit(1);
+ fprintf(stderr, "\n");
+ fprintf(stderr, "Simulator error: cannot resolve address 0x%lx at line %d\n",
+   a, l);
+ exit(1);
 }
 
 
 int output_report()
 {
-	printf("\n");
-	printf("Memory references: %d\n", mem_refs);
-	printf("Page faults: %d\n", page_faults);
-	printf("Swap ins: %d\n", swap_ins);
-	printf("Swap outs: %d\n", swap_outs);
+ printf("\n");
+ printf("Memory references: %d\n", mem_refs);
+ printf("Page faults: %d\n", page_faults);
+ printf("Swap ins: %d\n", swap_ins);
+ printf("Swap outs: %d\n", swap_outs);
 
-    return -1;
+       return -1;
 }
 
 
 int main(int argc, char **argv)
 {
-	int i;
-	char *infile_name = NULL;
-	struct stat infile_stat;
-	FILE *infile = NULL;
-	int infile_size = 0;
-	char *s;
-	int show_progress = FALSE;
-	char buffer[MAX_LINE_LEN], is_write_c;
-	long addr_inst, addr_operand;
-	int  is_write;
-	int line_num = 0;
+ int i;
+ char *infile_name = NULL;
+ struct stat infile_stat;
+ FILE *infile = NULL;
+ int infile_size = 0;
+ char *s;
+ int show_progress = FALSE;
+ char buffer[MAX_LINE_LEN], is_write_c;
+ long addr_inst, addr_operand;
+ int   is_write;
+ int line_num = 0;
 
-	for (i=1; i < argc; i++) {
-		if (strncmp(argv[i], "--scheme=", 9) == 0) {
-			s = strstr(argv[i], "=") + 1;
-			if (strcmp(s, "clock") == 0) {
-				page_replacement_scheme = SCHEME_CLOCK;
-			} else if (strcmp(s, "lru") == 0) {
-				page_replacement_scheme = SCHEME_LRU;
-			} else if (strcmp(s, "optimal") == 0) {
-				page_replacement_scheme = SCHEME_OPTIMAL;
-			}		
-		} else if (strncmp(argv[i], "--file=", 7) == 0) {
-			infile_name = strstr(argv[i], "=") + 1;
-		} else if (strncmp(argv[i], "--framesize=", 12) == 0) {
-			s = strstr(argv[i], "=") + 1;
-			size_of_frame = atoi(s);
-		} else if (strncmp(argv[i], "--numframes=", 12) == 0) {
-			s = strstr(argv[i], "=") + 1;
-			size_of_memory = atoi(s);
-		} else if (strcmp(argv[i], "--progress") == 0) {
-			show_progress = TRUE;
-		}
-	}
+ for (i=1; i < argc; i++) {
+   if (strncmp(argv[i], "--scheme=", 9) == 0) {
+     s = strstr(argv[i], "=") + 1;
+     if (strcmp(s, "fifo") == 0) {
+       page_replacement_scheme = SCHEME_FIFO;
+     } else if (strcmp(s, "lru") == 0) {
+       page_replacement_scheme = SCHEME_LRU;
+     }   
+   } else if (strncmp(argv[i], "--file=", 7) == 0) {
+     infile_name = strstr(argv[i], "=") + 1;
+   } else if (strncmp(argv[i], "--framesize=", 12) == 0) {
+     s = strstr(argv[i], "=") + 1;
+     size_of_frame = atoi(s);
+   } else if (strncmp(argv[i], "--numframes=", 12) == 0) {
+     s = strstr(argv[i], "=") + 1;
+     size_of_memory = atoi(s);
+   } else if (strcmp(argv[i], "--progress") == 0) {
+     show_progress = TRUE;
+   }
+ }
 
-	if (infile_name == NULL) {
-		infile = stdin;
-	} else if (stat(infile_name, &infile_stat) == 0) {
-		infile_size = (int)(infile_stat.st_size);
-		infile = fopen(infile_name, "r");  /* If this fails, infile will be null */
-	}
+ if (infile_name == NULL) {
+   infile = stdin;
+ } else if (stat(infile_name, &infile_stat) == 0) {
+   infile_size = (int)(infile_stat.st_size);
+   infile = fopen(infile_name, "r");   /* If this fails, infile will be null */
+ }
 
 
-	if (page_replacement_scheme == SCHEME_NONE ||
-	    size_of_frame <= 0 ||
-	    size_of_memory <= 0 ||
-	    infile == NULL)
-	{
-		fprintf(stderr, "usage: %s --framesize=<m> --numframes=<n>", argv[0]);
-		fprintf(stderr, "--scheme={clock|lru|optimal} [--file=<filename>]\n");
-		exit(1);
-	}
+ if (page_replacement_scheme == SCHEME_NONE ||
+         size_of_frame <= 0 ||
+         size_of_memory <= 0 ||
+         infile == NULL)
+ {
+   fprintf(stderr, "usage: %s --framesize=<m> --numframes=<n> ", argv[0]);
+   fprintf(stderr, "--scheme={fifo|lru} [--file=<filename>]\n");
+   exit(1);
+ }
 
 
-	initialize();
+ initialize();
 
-	while (fgets(buffer, MAX_LINE_LEN-1, infile)) {
-		line_num++;
-		if (strstr(buffer, ":")) {
-			sscanf(buffer, "%lx: %c %lx", &addr_inst, &is_write_c, &addr_operand);
+ while (fgets(buffer, MAX_LINE_LEN-1, infile)) {
+   line_num++;
+   if (strstr(buffer, ":")) {
+     sscanf(buffer, "%lx: %c %lx", &addr_inst, &is_write_c, &addr_operand);
 
-		 	if (is_write_c == 'R') {
-				is_write = FALSE;
-			} else if (is_write_c == 'W') {
-				is_write = TRUE;
-			}  else {
-				fprintf(stderr, "Simulator error: unknown memory operation at line %d\n",
-					line_num);
-				exit(1);
-			}
+       if (is_write_c == 'R') {
+       is_write = FALSE;
+     } else if (is_write_c == 'W') {
+       is_write = TRUE;
+     }   else {
+       fprintf(stderr, "Simulator error: unknown memory operation at line %d\n",
+         line_num);
+       exit(1);
+     }
 
-			if (resolve_address(addr_inst, FALSE) == -1) {
-				error_resolve_address(addr_inst, line_num);
-			}
-			if (resolve_address(addr_operand, is_write) == -1) {
-				error_resolve_address(addr_operand, line_num);
-			}
-			mem_refs += 2;
-		} else {
-			sscanf(buffer, "%lx", &addr_inst);
-			if (!resolve_address(addr_inst, FALSE)) {
-				error_resolve_address(addr_inst, line_num);
-			}
-			mem_refs++;
-		}
+     if (resolve_address(addr_inst, FALSE) == -1) {
+       error_resolve_address(addr_inst, line_num);
+     }
+     if (resolve_address(addr_operand, is_write) == -1) {
+       error_resolve_address(addr_operand, line_num);
+     }
+     mem_refs += 2;
+   } else {
+     sscanf(buffer, "%lx", &addr_inst);
+     if (!resolve_address(addr_inst, FALSE)) {
+       error_resolve_address(addr_inst, line_num);
+     }
+     mem_refs++;
+   }
 
-		if (show_progress) {
-			display_progress(ftell(infile) * 100 / infile_size);
-		}
-	}
-	
+   if (show_progress) {
+     display_progress(ftell(infile) * 100 / infile_size);
+   }
+ }
+ 
 
-	finalize();
-	output_report();
+ finalize();
+ output_report();
 
-	fclose(infile);
+ fclose(infile);
 
-    exit(0);
+       exit(0);
 }
