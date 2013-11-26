@@ -42,8 +42,22 @@ struct page_table_entry {
  long page_num;
  int dirty;
  int free;
+  // ---------------Begin Edit---------------- //
+ // For LRU, this will mark the last time this was used.
+ int last;
+  // ---------------End Edit---------------- //
 };
 
+
+// ---------------Begin Edit---------------- //
+int select_by_FIFO(void) {
+  return -1;
+}
+
+int select_by_LRU(void) {
+  return -1;
+}
+// ---------------End Edit---------------- //
 
 
 long resolve_address(long logical, int memwrite)
@@ -103,23 +117,26 @@ long resolve_address(long logical, int memwrite)
    return effective;
  } else {
     // ---------------Begin Edit---------------- //
+   swap_outs++;   // Add a swap-out.
+   swap_ins++;    // Also add a swap in, we're doing both after all.
     /* There are no free frames. Need to decide what to do based on
      * our replacement scheme.
      */
    switch (page_replacement_scheme) {
      case SCHEME_FIFO:
         fprintf(stderr, "I should replace with FIFO\n");
-        return -1;
+        /* Replace the first allocated memory spot. */
+        return select_by_FIFO();
       case SCHEME_LRU:
         fprintf(stderr, "I should replace with LRU\n");
-        return -1;
+        /* Replace the least recently used memory spot. */
+        return select_by_LRU();
       default:
         return -1;
    }
     // ---------------End Edit---------------- //
  }
 }
-
 
 
 void display_progress(int percent)
