@@ -31,10 +31,10 @@ int output_report(void);
 long resolve_address(long, int);
 void error_resolve_address(long, int);
 
-int page_faults = 0;
-int mem_refs       = 0;
+int page_faults  = 0;
+int mem_refs     = 0;
 int swap_outs    = 0;
-int swap_ins       = 0;
+int swap_ins     = 0;
 
 struct page_table_entry *page_table = NULL;
 
@@ -43,19 +43,49 @@ struct page_table_entry {
  int dirty;
  int free;
   // ---------------Begin Edit---------------- //
- // For LRU, this will mark the last time this was used.
- int last;
+ int ticks_since_use;        // Have we used it yet this tick?
   // ---------------End Edit---------------- //
 };
 
 
 // ---------------Begin Edit---------------- //
-int select_by_FIFO(void) {
-  return -1;
+int FIFO_pos = 0;
+int select_by_FIFO(long page) {
+  // Sweet! We need to drop the first placed slot.
+  // This should be FIFO_pos which will be 0!
+  // Replace the page at FIFO_pos.
+  page_table[FIFO_pos].page_num = page;
+  // TODO: Insert functionality to write to disk.
+  // Increment FIFO pos.
+  int temp_FIFO = FIFO_pos;
+  FIFO_pos = (FIFO_pos + 1) % size_of_memory;
+  // Return that page.
+  return temp_FIFO;
 }
 
-int select_by_LRU(void) {
-  return -1;
+// The number of slots we've marked down as used.
+int LRU_tick_current = 0;
+// The maximum number of slots we can do that for without having a recently used slot.
+int select_by_LRU(long page) {
+  // Hot dang! We need to drop the least recently used slot.
+  // We can't really be **exactly** precise here, since it would mean bloating up the page table and doing a bunch of time junk.
+  // Instead, we're going to use the size_of_memory (Say, 12) as a sort of flag. 
+  // When we've used 'size_of_memory' different slots we'll walk through the slots and increment their 'ticks_since_use'
+  
+  // So, to select the least recently used, just find the number with the highest ticks_since_use. Picking the first if not.
+  int i = 0;
+  int highest_ticks_since_use = 0;
+  int highest_index = 0;
+  for ( i=0; i < size_of_memory; i++ ) {
+    if (page_table[i].ticks_since_use > highest_ticks_since_use) {
+      highest_ticks_since_use = page_table[i].ticks_since_use;
+      highest_index = i;
+    }
+  }
+  page_table[highest_index].page_num = page;
+  page_table[highest_index].ticks_since_use = 0;
+  
+  return highest_index;
 }
 // ---------------End Edit---------------- //
 
@@ -82,6 +112,16 @@ long resolve_address(long logical, int memwrite)
  for ( i = 0; i < size_of_memory; i++ ) {
    if (!page_table[i].free && page_table[i].page_num == page) {
      frame = i;
+     // ---------------Begin Edit---------------- //
+     LRU_tick_current = (LRU_tick_current + 1) % size_of_memory;
+     // If we need to roll over, go over each memory frame and increment it's ticks_since_use.
+     if (LRU_tick_current == 0) {
+       int j;
+       for (j=0; j<size_of_memory; j++) { page_table[j].ticks_since_use++; }
+     }
+     // Mark it's LRU_tick.
+     page_table[i].ticks_since_use = 0;
+     // ---------------End Edit---------------- //
      break;
    }
  }
@@ -112,6 +152,16 @@ long resolve_address(long logical, int memwrite)
  if (frame != -1) {
    page_table[frame].page_num = page;
    page_table[i].free = FALSE;
+   // ---------------Begin Edit---------------- //
+   LRU_tick_current = (LRU_tick_current + 1) % size_of_memory;
+   // If we need to roll over, go over each memory frame and increment it's ticks_since_use.
+   if (LRU_tick_current == 0 && page_replacement_scheme == SCHEME_LRU) {
+     int j;
+     for (j=0; j<size_of_memory; j++) { page_table[j].ticks_since_use++; }
+   }
+   // Mark it's ticks_since_use to 0.
+   page_table[i].ticks_since_use = 0;
+   // ---------------End Edit---------------- //
    swap_ins++;
    effective = (frame << size_of_frame) | offset;
    return effective;
@@ -119,21 +169,29 @@ long resolve_address(long logical, int memwrite)
     // ---------------Begin Edit---------------- //
    swap_outs++;   // Add a swap-out.
    swap_ins++;    // Also add a swap in, we're doing both after all.
+   LRU_tick_current = (LRU_tick_current + 1) % size_of_memory;
+   // If we need to roll over, go over each memory frame and increment it's ticks_since_use.
+   if (LRU_tick_current == 0 && page_replacement_scheme == SCHEME_LRU) {
+     int j;
+     for (j=0; j<size_of_memory; j++) { page_table[j].ticks_since_use++; }
+   }
     /* There are no free frames. Need to decide what to do based on
      * our replacement scheme.
      */
    switch (page_replacement_scheme) {
      case SCHEME_FIFO:
-        fprintf(stderr, "I should replace with FIFO\n");
         /* Replace the first allocated memory spot. */
-        return select_by_FIFO();
+        frame = select_by_FIFO(page);
+        break;
       case SCHEME_LRU:
-        fprintf(stderr, "I should replace with LRU\n");
         /* Replace the least recently used memory spot. */
-        return select_by_LRU();
+        frame = select_by_LRU(page);
+        break;
       default:
         return -1;
    }
+  effective = (frame << size_of_frame) | offset;
+  return effective;
     // ---------------End Edit---------------- //
  }
 }
@@ -284,15 +342,18 @@ int main(int argc, char **argv)
      }
 
      if (resolve_address(addr_inst, FALSE) == -1) {
+       fprintf(stderr, "l346\n");
        error_resolve_address(addr_inst, line_num);
      }
      if (resolve_address(addr_operand, is_write) == -1) {
+       fprintf(stderr, "l349\n");
        error_resolve_address(addr_operand, line_num);
      }
      mem_refs += 2;
    } else {
      sscanf(buffer, "%lx", &addr_inst);
-     if (!resolve_address(addr_inst, FALSE)) {
+     if (resolve_address(addr_inst, FALSE) == -1) {
+      fprintf(stderr, "l357\n");
        error_resolve_address(addr_inst, line_num);
      }
      mem_refs++;
