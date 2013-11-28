@@ -164,7 +164,7 @@ void stride_scheduling(int quantum)
   // Set up meter times.
   for (int i=0; i < num_tasks; i++) {
     total_bribes += 11 - tasks[i].priority; // 10 + 1 for Divide by zero.
-    tasks[i].meter_rate = 1 / (11 - tasks[i].priority); // For divide by zero.
+    tasks[i].meter_rate = 1 / (4 - tasks[i].priority); // For divide by zero.
     tasks[i].metered_time = 0;
   }
   float total_rate = 1 / total_bribes;
@@ -182,7 +182,6 @@ void stride_scheduling(int quantum)
         // Is is ready?
         int arrived = (tasks[i].arrival_time <= current_tick + quantum - tick_left);
         int done = tasks[i].cpu_cycles >= tasks[i].length;
-        fprintf(stderr, "   Task %d is arrived: %d, done %d\n", i, arrived, done);
         if (!arrived || done) {
           continue; // If not, drop out.
         }
@@ -218,7 +217,7 @@ void stride_scheduling(int quantum)
       // Is it done?
       if (tasks[target_task].cpu_cycles >= tasks[target_task].length) {
         done_tasks++;
-        tasks[target_task].finish_time = current_tick + tick_left;
+        tasks[target_task].finish_time = current_tick + quantum - tick_left;
       }
     }
     // End while
@@ -314,19 +313,21 @@ void rr_scheduling(int quantum)
         // Is is ready?
         int arrived = (tasks[i].arrival_time <= current_tick - (quantum - tick_left));
         int done = tasks[i].cpu_cycles >= tasks[i].length;
+        int higher_priority = (target_task != -1 && tasks[target_task].priority < tasks[i].priority);
         fprintf(stderr, "   Testing %d/%d, arrived: %d, done: %d\n", i, num_tasks, arrived, done);
-        if (!arrived || done) {
+        if (!arrived || done || higher_priority) {
           fprintf(stderr, "   Incrementing step to %d\n", step+1);
           step++;
         } else {
-          fprintf(stderr, "   Selecting %d\n", (last_task + step) % num_tasks);
+          fprintf(stderr, "   Selecting %d, priority %d\n", i, tasks[i].priority);
           target_task = (last_task + step) % num_tasks;
           if (target_task != last_task) {
             fprintf(stderr, "       New schduling!\n");
             tasks[target_task].schedulings++;
           }
           last_task = target_task;
-          break;
+          //
+          step++;
         }
       }
 
