@@ -346,7 +346,7 @@ void rr_scheduling(int quantum)
       // Is it done?
       if (tasks[target_task].cpu_cycles >= tasks[target_task].length) {
         done_tasks++;
-        tasks[target_task].finish_time = current_tick + tick_left;
+        tasks[target_task].finish_time = current_tick + quantum - tick_left;
       }
     }
     // End while
