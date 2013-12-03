@@ -299,37 +299,45 @@ void rr_scheduling(int quantum)
   int done_tasks = 0;
   int current_tick = 1;
   int last_task = -1;
+  // Positions by priority.
+  int positions[4] = {0, 0, 0, 0};
+  
   for (;;) {
     fprintf(stderr, "Processing tick %d\n", current_tick);
     float tick_left = quantum;
+    int target_task = -1;
     // While tick_left > 0.0
     while (tick_left > 0.0) {
-      int target_task = -1;
-      int step = 1;
-      // Set the target task.
-      // With RR, just select the next task in order that's arrived and raring to go.
-      while (step <= num_tasks) {
-        int i = (last_task + step) % num_tasks;
-        // Is is ready?
-        int arrived = (tasks[i].arrival_time <= current_tick - (quantum - tick_left));
-        int done = tasks[i].cpu_cycles >= tasks[i].length;
-        int higher_priority = (target_task != -1 && tasks[target_task].priority < tasks[i].priority);
-        fprintf(stderr, "   Testing %d/%d, arrived: %d, done: %d\n", i, num_tasks, arrived, done);
-        if (!arrived || done || higher_priority) {
-          fprintf(stderr, "   Incrementing step to %d\n", step+1);
-          step++;
-        } else {
-          fprintf(stderr, "   Selecting %d, priority %d\n", i, tasks[i].priority);
-          target_task = (last_task + step) % num_tasks;
-          if (target_task != last_task) {
-            fprintf(stderr, "       New schduling!\n");
-            tasks[target_task].schedulings++;
+      // START
+      int i;
+      // Start at the highest priority, travel down.
+      for (i=0; i<4; i++) {
+        // See if any tasks exist at this priority level which are eligible.
+        int step = 0;
+        while (step <= num_tasks) {
+          int this_spot = (positions[i] + step) % num_tasks;
+          // Is is ready?
+          int arrived = (tasks[this_spot].arrival_time <= current_tick - (quantum - tick_left));
+          int done = tasks[this_spot].cpu_cycles >= tasks[this_spot].length;
+          int is_this_priority = tasks[this_spot].priority == i;
+          if (arrived && !done && is_this_priority) {
+            fprintf(stderr, "Found a task at priority %d, task is %d. Selecting...\n", i, this_spot);
+            last_task = target_task;
+            target_task = this_spot;
+            positions[i] = target_task;
+            break;
           }
-          last_task = target_task;
-          //
+          if (target_task != -1) {
+            break;
+          }
           step++;
         }
       }
+      if (target_task != last_task) {
+        tasks[target_task].schedulings++;
+      }
+      // END
+      
 
       fprintf(stderr, " Task is %d\n", target_task);
       if (target_task == -1) { break; }
