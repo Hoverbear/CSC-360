@@ -321,7 +321,7 @@ void rr_scheduling(int quantum)
           int done = tasks[this_spot].cpu_cycles >= tasks[this_spot].length;
           int is_this_priority = tasks[this_spot].priority == i;
           if (arrived && !done && is_this_priority) {
-            fprintf(stderr, "Found a task at priority %d, task is %d. Selecting...\n", i, this_spot);
+            fprintf(stderr, "  Found a task at priority %d, task is %d. Selecting...\n", i, this_spot);
             last_task = target_task;
             target_task = this_spot;
             positions[i] = target_task;
@@ -335,6 +335,7 @@ void rr_scheduling(int quantum)
       }
       if (target_task != last_task) {
         tasks[target_task].schedulings++;
+        fprintf(stderr, "  This is a new scheduling.\n");
       }
       // END
       
