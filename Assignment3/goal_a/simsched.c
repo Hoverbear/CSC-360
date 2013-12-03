@@ -310,6 +310,7 @@ void rr_scheduling(int quantum)
     while (tick_left > 0.0) {
       // START
       int i;
+      target_task = -1;
       // Start at the highest priority, travel down.
       for (i=0; i<4; i++) {
         // See if any tasks exist at this priority level which are eligible.
@@ -322,15 +323,14 @@ void rr_scheduling(int quantum)
           int is_this_priority = tasks[this_spot].priority == i;
           if (arrived && !done && is_this_priority) {
             fprintf(stderr, "  Found a task at priority %d, task is %d. Selecting...\n", i, this_spot);
-            last_task = target_task;
             target_task = this_spot;
             positions[i] = target_task;
             break;
           }
-          if (target_task != -1) {
-            break;
-          }
           step++;
+        }
+        if (target_task != -1) {
+          break;
         }
       }
       if (target_task != last_task) {
@@ -357,6 +357,7 @@ void rr_scheduling(int quantum)
         done_tasks++;
         tasks[target_task].finish_time = current_tick + quantum - tick_left;
       }
+      last_task = target_task;
     }
     // End while
     
